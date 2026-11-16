@@ -1,0 +1,60 @@
+<Window x:Class="DofusMulticompte.App.Controls.ToastWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="380" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" ShowActivated="False" Topmost="True"
+        FontFamily="Segoe UI Variable Text, Segoe UI" UseLayoutRounding="True"
+        Cursor="Hand" ToolTip="Cliquer pour fermer">
+    <!-- Palette relevée sur l'interface de Dofus 3 : panneau bleu nuit, lignes #292C4C, accent jaune citron. -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="Panel" Color="#F21B1D32"/>
+        <SolidColorBrush x:Key="Inner" Color="#292C4C"/>
+        <SolidColorBrush x:Key="Edge" Color="#3A3D5E"/>
+        <SolidColorBrush x:Key="TitleGray" Color="#AFB0B7"/>
+        <SolidColorBrush x:Key="Lime" Color="#F0FF4F"/>
+    </Window.Resources>
+
+    <!-- Marge : laisse la place à l'ombre portée -->
+    <Grid Margin="12">
+        <Border x:Name="Card" CornerRadius="10" Background="{StaticResource Panel}"
+                BorderBrush="{StaticResource Edge}" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.55" Color="Black"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Margin="14,12,16,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Pastille d'état -->
+                    <Border x:Name="Badge" Width="40" Height="40" CornerRadius="8" VerticalAlignment="Top"
+                            Background="{StaticResource Inner}" BorderThickness="1.5" BorderBrush="{StaticResource Lime}">
+                        <Path x:Name="Glyph" Width="18" Height="18" Stretch="Uniform" StrokeThickness="2.4"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Stroke="{StaticResource Lime}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="TitleText" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TitleGray}"/>
+                        <TextBlock x:Name="MessageText" FontSize="14" FontWeight="SemiBold" Foreground="White"
+                                   TextWrapping="Wrap" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Progression x/N, ou décompte avant fermeture -->
+                <Border Grid.Row="1" Height="4" Margin="14,0,14,10" CornerRadius="2" Background="{StaticResource Inner}">
+                    <Border x:Name="Bar" HorizontalAlignment="Left" CornerRadius="2" Background="{StaticResource Lime}" Width="0"/>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

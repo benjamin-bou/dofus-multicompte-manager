@@ -36,18 +36,29 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly Dictionary<IntPtr, AutoPlayWatch> _autoPlayWatches = new();
 
     /// <summary>Lancement demandé au launcher, en attente de sa fenêtre. <c>Attempt</c> vaut 1 au premier essai.</summary>
-    private sealed record PendingLaunch(DateTime RequestedAt, int Attempt, string? CharacterName);
+    private sealed record PendingLaunch(DateTime RequestedAt, int Attempt, string? CharacterName, LaunchBatch Batch);
 
-    private sealed class AutoPlayWatch(DateTime deadline, int attempt, string? characterName)
+    // Notifications de connexion : groupe de lancements en cours et fenêtres qui en font partie.
+    private static readonly TimeSpan SuccessToastDuration = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan WarningToastDuration = TimeSpan.FromSeconds(4);
+    private readonly NotificationCenter _notifications = new();
+    /// <summary>Fenêtres lancées par l'application : leur groupe et leur numéro d'essai (1 = premier coup).</summary>
+    private readonly Dictionary<IntPtr, (LaunchBatch Batch, int Attempt)> _launchedWindows = new();
+    private LaunchBatch? _currentBatch;
+
+    private sealed class AutoPlayWatch(DateTime deadline, int attempt, string? characterName, LaunchBatch batch)
     {
         public DateTime Deadline { get; set; } = deadline;
         public int Attempt { get; } = attempt;
         public string? CharacterName { get; } = characterName;
+        public LaunchBatch Batch { get; } = batch;
         public bool Checking { get; set; }
         /// <summary>Nombre de détections consécutives du bouton : on attend qu'il soit stable avant de cliquer.</summary>
         public int Hits { get; set; }
         /// <summary>Écran de chargement affiché en ce moment (nuages ou écran noir), et depuis quand.</summary>
         public LoginScreenState? StuckState { get; set; }
+        /// <summary>Pas de nouveau clic avant cette date (le jeu change d'écran après un clic).</summary>
+        public DateTime NextClickAfter { get; set; }
         public DateTime StuckSince { get; set; }
     }
     private bool _capturing;
@@ -82,6 +93,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         LaunchNewCommand = new RelayCommand(_ => LaunchNewInstance(), _ => !_launchingAll);
         ForgetCommand = new RelayCommand(p => Forget(p as CharacterViewModel), p => p is CharacterViewModel { IsOnline: false });
         ClearLogCommand = new RelayCommand(_ => LogEntries.Clear());
+        TestNotificationCommand = new RelayCommand(_ => ShowSampleNotification());
 
         _rescanSoon = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) => { _rescanSoon!.Stop(); Rescan(); }, _dispatcher);
         _rescanSoon.Stop();
@@ -108,6 +120,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand LaunchNewCommand { get; }
     public ICommand ForgetCommand { get; }
     public ICommand ClearLogCommand { get; }
+    public ICommand TestNotificationCommand { get; }
+
+    public bool ShowConnectionNotifications
+    {
+        get => Settings.ShowConnectionNotifications;
+        set => UpdateSetting(() => Settings.ShowConnectionNotifications = value);
+    }
 
     public int OfflineCount => Characters.Count(c => !c.IsOnline);
     public string LaunchAllLabel => OfflineCount > 0 ? $"Tout lancer ({OfflineCount})" : "Tout lancer";
@@ -242,6 +261,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var c = Characters[i];
             if (!c.IsOnline || seen.Contains(c.Handle)) continue;
             if (c.CharacterName is { } closedName && c.Thumbnail is { } last) _portraits.Save(closedName, last);
+            _launchedWindows.Remove(c.Handle);
             Log($"Instance fermée : {c.DisplayName}");
             Characters.RemoveAt(i);
             needsSort = true;
@@ -263,7 +283,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             else if (vm.UpdateTitle(w.Title))
             {
                 Log(vm.IsConnected ? $"Personnage connecté : {vm.DisplayName} ({vm.ClassName})" : $"Personnage déconnecté (PID {w.ProcessId})");
-                if (vm.IsConnected) RememberCharacter(vm);
+                if (vm.IsConnected)
+                {
+                    RememberCharacter(vm);
+                    OnLaunchedInstanceConnected(vm);
+                }
                 needsSort = true;
             }
         }
@@ -303,8 +327,33 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _pendingLaunches.Dequeue();
         if (_pendingLaunches.Count == 0 || vm.IsConnected) return;
         var launch = _pendingLaunches.Dequeue();
+        _launchedWindows[vm.Handle] = (launch.Batch, launch.Attempt);
         if (Settings.AutoEnterGame || Settings.RelaunchStuckInstances)
-            _autoPlayWatches[vm.Handle] = new AutoPlayWatch(DateTime.UtcNow + CharacterSelectionTimeout, launch.Attempt, launch.CharacterName);
+            _autoPlayWatches[vm.Handle] = new AutoPlayWatch(DateTime.UtcNow + CharacterSelectionTimeout, launch.Attempt, launch.CharacterName, launch.Batch);
+    }
+
+    /// <summary>Un lancement rejoint le groupe en cours (« x/N ») ou en ouvre un nouveau.</summary>
+    private LaunchBatch JoinBatch()
+    {
+        var now = DateTime.UtcNow;
+        if (_currentBatch is null || !_currentBatch.CanJoin(now)) _currentBatch = new LaunchBatch(now);
+        _currentBatch.AddLaunch();
+        return _currentBatch;
+    }
+
+    /// <summary>Une instance lancée par l'application vient d'entrer en jeu : met à jour la notification de son groupe.</summary>
+    private void OnLaunchedInstanceConnected(CharacterViewModel vm)
+    {
+        if (!_launchedWindows.Remove(vm.Handle, out var launched)) return;
+        // Essai 1 = connecté du premier coup : aucune mention de relance.
+        Notify(launched.Batch.Id, launched.Batch.OnConnected(vm.DisplayName, retriesForThisInstance: launched.Attempt - 1));
+    }
+
+    private void Notify(string key, NotificationContent content)
+    {
+        if (!Settings.ShowConnectionNotifications) return;
+        var duration = content.Kind == NotificationKind.Warning ? WarningToastDuration : SuccessToastDuration;
+        _notifications.Show(key, content, duration);
     }
 
     /// <summary>
@@ -374,14 +423,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 _autoPlayWatches.Remove(hwnd); // l'écran de choix est atteint : plus rien à surveiller
                 return;
             }
+            if (DateTime.UtcNow < watch.NextClickAfter) return; // laisse le jeu réagir au clic précédent
             if (++watch.Hits < 2) return; // attend une deuxième détection : l'écran a fini de s'afficher
 
-            _autoPlayWatches.Remove(hwnd);
+            // On continue de surveiller : l'accueil (« Jouer » au centre) mène au choix du personnage
+            // (« Jouer » en bas), qu'il faut aussi valider. La surveillance s'arrête à l'entrée en jeu.
+            watch.Hits = 0;
+            watch.NextClickAfter = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            if (watch.Deadline < DateTime.UtcNow + CharacterSelectionTimeout) watch.Deadline = DateTime.UtcNow + CharacterSelectionTimeout;
+            var screen = point.Y < 0.65 ? "Écran d'accueil" : "Écran de choix du personnage";
             _automation.Enqueue($"PID {processId}", () =>
             {
                 var ok = WindowController.ClickClient(hwnd, point);
                 Log(ok
-                    ? $"Écran de choix du personnage détecté (PID {processId}) : clic sur « Jouer »."
+                    ? $"{screen} détecté (PID {processId}) : clic sur « Jouer »."
                     : $"Impossible de cliquer sur « Jouer » (PID {processId}).");
             });
         }
@@ -395,6 +450,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private async Task RelaunchStuckInstanceAsync(IntPtr hwnd, int processId, AutoPlayWatch watch, LoginScreenState state, TimeSpan stuckFor)
     {
         _autoPlayWatches.Remove(hwnd);
+        _launchedWindows.Remove(hwnd);
         var next = watch.Attempt + 1;
         var reason = state switch
         {
@@ -403,6 +459,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _ => "bloquée sur les nuages de chargement",
         };
         Log($"Instance PID {processId} {reason} depuis {stuckFor.TotalSeconds:F0} s : fermeture puis relance (essai {next}).");
+        watch.Batch.AddRetry();
+        Notify($"relance-{processId}", LaunchBatch.RelaunchNotice(watch.CharacterName, reason, next));
 
         await Task.Run(() => CloseProcess(processId, force: state == LoginScreenState.NotResponding));
         await Task.Delay(2000); // laisse le serveur libérer la session avant de se reconnecter
@@ -411,9 +469,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (error is not null)
         {
             Log($"Relance impossible : {error}");
+            NotifyLaunchError(error);
             return;
         }
-        _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, next, watch.CharacterName));
+        _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, next, watch.CharacterName, watch.Batch));
         if (watch.CharacterName is { } name) _launchRequestedAt[name] = DateTime.UtcNow;
     }
 
@@ -569,10 +628,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (error is not null)
         {
             Log($"Lancement impossible : {error}");
+            NotifyLaunchError(error);
             return false;
         }
         _launchRequestedAt[name] = DateTime.UtcNow;
-        _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, 1, name));
+        _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, 1, name, JoinBatch()));
         vm.IsLaunching = true;
         Log($"Instance demandée au launcher pour {name} (compte actif du launcher).");
         return true;
@@ -581,8 +641,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void LaunchNewInstance()
     {
         var error = GameLauncher.LaunchOne(Settings);
-        if (error is null) _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, 1, null));
+        if (error is null) _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, 1, null, JoinBatch()));
+        else NotifyLaunchError(error);
         Log(error is null ? "Nouvelle instance demandée au launcher." : $"Lancement impossible : {error}");
+    }
+
+    private void NotifyLaunchError(string error) =>
+        Notify("erreur-lancement", new NotificationContent(NotificationKind.Error, "Lancement impossible", [new TextPart(error)], null));
+
+    /// <summary>Affiche une notification d'exemple (bouton « Tester » des réglages).</summary>
+    private void ShowSampleNotification()
+    {
+        var batch = new LaunchBatch(DateTime.UtcNow);
+        batch.AddLaunch();
+        batch.AddLaunch();
+        var name = Characters.FirstOrDefault(c => c.IsConnected)?.DisplayName ?? "Personnage";
+        _notifications.Show("exemple", batch.OnConnected(name), SuccessToastDuration);
     }
 
     /// <summary>Lance une instance par personnage hors ligne, avec une pause entre chaque pour ne pas saturer le launcher.</summary>

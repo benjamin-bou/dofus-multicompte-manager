@@ -265,6 +265,22 @@
                         </StackPanel>
                     </CheckBox>
 
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox IsChecked="{Binding ShowConnectionNotifications}">
+                            <StackPanel>
+                                <TextBlock Text="Notifications de connexion"/>
+                                <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                           Text="En bas à droite de l'écran : personnage en jeu, « x/N connectés », et chaque relance d'une connexion bloquée."/>
+                            </StackPanel>
+                        </CheckBox>
+                        <Button Grid.Column="1" Content="Tester" Padding="10,4" Margin="10,0,0,0" VerticalAlignment="Top"
+                                Command="{Binding TestNotificationCommand}"/>
+                    </Grid>
+
                     <TextBlock Text="RACCOURCIS GLOBAUX" Style="{StaticResource SectionTitle}"/>
                     <Grid>
                         <Grid.ColumnDefinitions>

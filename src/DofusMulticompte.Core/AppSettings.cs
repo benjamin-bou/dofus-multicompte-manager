@@ -79,6 +79,9 @@ public sealed class AppSettings
     /// <summary>Durée passée sur le fond de nuages avant de considérer l'instance comme bloquée.</summary>
     public int StuckLoadingTimeoutMs { get; set; } = 15000;
 
+    /// <summary>Notifications en bas à droite de l'écran : connexions (« x/N ») et relances.</summary>
+    public bool ShowConnectionNotifications { get; set; } = true;
+
     public Dictionary<string, CharacterProfile> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public CharacterProfile GetOrCreateProfile(string characterName)

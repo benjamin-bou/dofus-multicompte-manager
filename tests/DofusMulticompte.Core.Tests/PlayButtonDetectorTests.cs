@@ -53,6 +53,23 @@ public class PlayButtonDetectorTests
     }
 
     [Fact]
+    public void Find_EcranDAccueil_BoutonAuCentreSousUnLogoVert()
+    {
+        var px = Image(Ciel);
+        // Logo vert irrégulier, haut sur l'écran, en partie dans la zone de recherche.
+        Fill(px, 170, 20, 60, 50, ButtonGreen);
+        Fill(px, 185, 70, 30, 12, ButtonGreen);
+        // Bouton « Jouer » au centre, un peu au-dessus de la mi-hauteur : centré en (200, 115).
+        Fill(px, 176, 107, 48, 16, ButtonGreen);
+
+        var p = PlayButtonDetector.Find(px, W, H, W * 4);
+
+        Assert.NotNull(p);
+        Assert.InRange(p.Value.X, 0.49, 0.51);
+        Assert.InRange(p.Value.Y, 0.47, 0.49);
+    }
+
+    [Fact]
     public void Find_SansBouton_RenvoieNull()
     {
         var px = Image(Ciel);
