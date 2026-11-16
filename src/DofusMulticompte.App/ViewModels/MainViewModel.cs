@@ -24,6 +24,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _rescanSoon;
     private readonly Dispatcher _dispatcher;
     private static readonly TimeSpan TurnBadgeDuration = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan LaunchBadgeDuration = TimeSpan.FromSeconds(90);
+    private readonly PortraitStore _portraits = new(PortraitStore.DefaultDirectory);
+    private readonly Dictionary<string, DateTime> _launchRequestedAt = new(StringComparer.OrdinalIgnoreCase);
+    private bool _launchingAll;
     private bool _capturing;
     private DateTime _turnMarkedAt = DateTime.MinValue;
     private string _hotkeyStatus = "";
@@ -43,12 +47,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _messages.HotkeyPressed += OnHotkey;
 
         SetLeaderCommand = new RelayCommand(p => ToggleLeader(p as CharacterViewModel), p => p is CharacterViewModel { IsConnected: true });
-        FocusCommand = new RelayCommand(p => { if (p is CharacterViewModel c) WindowController.Focus(c.Handle); });
+        FocusCommand = new RelayCommand(p => { if (p is CharacterViewModel { IsOnline: true } c) WindowController.Focus(c.Handle); });
         MoveUpCommand = new RelayCommand(p => Move(p as CharacterViewModel, -1), p => p is CharacterViewModel { IsConnected: true });
         MoveDownCommand = new RelayCommand(p => Move(p as CharacterViewModel, +1), p => p is CharacterViewModel { IsConnected: true });
         TestPassCommand = new RelayCommand(
-            p => { if (p is CharacterViewModel { CharacterName: { } n } c) _automation.PassTurnNow(c.Handle, n, Settings); },
-            p => p is CharacterViewModel { IsConnected: true });
+            p => { if (p is CharacterViewModel { IsOnline: true, CharacterName: { } n } c) _automation.PassTurnNow(c.Handle, n, Settings); },
+            p => p is CharacterViewModel { IsOnline: true, IsConnected: true });
+        LaunchCommand = new RelayCommand(
+            p => { if (p is CharacterViewModel c) Launch(c); },
+            p => p is CharacterViewModel { IsOnline: false, IsLaunching: false } && !_launchingAll);
+        LaunchAllCommand = new RelayCommand(async _ => await LaunchAllAsync(), _ => !_launchingAll && OfflineCount > 0);
+        LaunchNewCommand = new RelayCommand(_ => LaunchNewInstance(), _ => !_launchingAll);
+        ForgetCommand = new RelayCommand(p => Forget(p as CharacterViewModel), p => p is CharacterViewModel { IsOnline: false });
         ClearLogCommand = new RelayCommand(_ => LogEntries.Clear());
 
         _rescanSoon = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) => { _rescanSoon!.Stop(); Rescan(); }, _dispatcher);
@@ -71,14 +81,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand MoveUpCommand { get; }
     public ICommand MoveDownCommand { get; }
     public ICommand TestPassCommand { get; }
+    public ICommand LaunchCommand { get; }
+    public ICommand LaunchAllCommand { get; }
+    public ICommand LaunchNewCommand { get; }
+    public ICommand ForgetCommand { get; }
     public ICommand ClearLogCommand { get; }
+
+    public int OfflineCount => Characters.Count(c => !c.IsOnline);
+    public string LaunchAllLabel => OfflineCount > 0 ? $"Tout lancer ({OfflineCount})" : "Tout lancer";
 
     public string StatusText
     {
         get
         {
-            var total = Characters.Count;
-            var connected = Characters.Count(c => c.IsConnected);
+            var total = Characters.Count(c => c.IsOnline);
+            var connected = Characters.Count(c => c.IsOnline && c.IsConnected);
             var leader = Settings.LeaderName is { } l && Characters.Any(c => c.IsLeader) ? $" · Meneur : {l}" : " · Aucun meneur actif";
             return total == 0
                 ? "Aucune instance de Dofus détectée"
@@ -185,11 +202,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var seen = new HashSet<IntPtr>(windows.Select(w => w.Handle));
         var needsSort = false;
 
+        // Fenêtres fermées : on garde la dernière image du personnage pour sa carte hors ligne.
         for (var i = Characters.Count - 1; i >= 0; i--)
         {
-            if (seen.Contains(Characters[i].Handle)) continue;
-            Log($"Instance fermée : {Characters[i].DisplayName}");
+            var c = Characters[i];
+            if (!c.IsOnline || seen.Contains(c.Handle)) continue;
+            if (c.CharacterName is { } closedName && c.Thumbnail is { } last) _portraits.Save(closedName, last);
+            Log($"Instance fermée : {c.DisplayName}");
             Characters.RemoveAt(i);
+            needsSort = true;
         }
 
         foreach (var w in windows)
@@ -201,14 +222,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 vm.UpdateTitle(w.Title);
                 Characters.Add(vm);
                 Log(vm.IsConnected ? $"Instance détectée : {vm.DisplayName} ({vm.ClassName})" : $"Instance détectée (PID {w.ProcessId}), personnage pas encore connecté");
+                if (vm.IsConnected) RememberCharacter(vm);
                 needsSort = true;
             }
             else if (vm.UpdateTitle(w.Title))
             {
                 Log(vm.IsConnected ? $"Personnage connecté : {vm.DisplayName} ({vm.ClassName})" : $"Personnage déconnecté (PID {w.ProcessId})");
+                if (vm.IsConnected) RememberCharacter(vm);
                 needsSort = true;
             }
         }
+
+        needsSort |= SyncOfflineCards();
 
         var foreground = NativeMethods.GetForegroundWindow();
         // Un tour de Dofus ne dépasse pas une minute : passé ce délai, le badge « Son tour » est périmé.
@@ -216,20 +241,75 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         foreach (var c in Characters)
         {
             c.IsLeader = c.IsConnected && Settings.IsLeader(c.CharacterName);
-            c.IsActive = c.Handle == foreground;
+            c.IsActive = c.IsOnline && c.Handle == foreground;
             if (turnExpired) c.IsTurn = false;
+            if (c.IsLaunching && c.CharacterName is { } n &&
+                (!_launchRequestedAt.TryGetValue(n, out var at) || DateTime.UtcNow - at > LaunchBadgeDuration))
+                c.IsLaunching = false;
         }
 
-        if (needsSort) Sort();
+        if (needsSort)
+        {
+            Sort();
+            // L'état des boutons dépend de la connexion : WPF ne le réévalue seul qu'après une saisie utilisateur.
+            CommandManager.InvalidateRequerySuggested();
+        }
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(HasCharacters));
+        OnPropertyChanged(nameof(OfflineCount));
+        OnPropertyChanged(nameof(LaunchAllLabel));
     }
 
+    /// <summary>Mémorise un personnage vu en jeu (et sa classe) pour pouvoir l'afficher et le lancer plus tard.</summary>
+    private void RememberCharacter(CharacterViewModel vm)
+    {
+        var profile = Settings.GetOrCreateProfile(vm.CharacterName!);
+        if (profile.ClassName != vm.ClassName)
+        {
+            profile.ClassName = vm.ClassName;
+            SaveSettings();
+        }
+        _launchRequestedAt.Remove(vm.CharacterName!);
+    }
+
+    /// <summary>Ajoute une carte hors ligne pour chaque personnage connu sans fenêtre, et retire celles devenues inutiles.</summary>
+    private bool SyncOfflineCards()
+    {
+        var changed = false;
+        var onlineNames = Characters.Where(c => c.IsOnline && c.IsConnected).Select(c => c.CharacterName!).ToList();
+        var offlineNames = new HashSet<string>(LaunchPlanner.OfflineCharacters(Settings, onlineNames), StringComparer.OrdinalIgnoreCase);
+
+        for (var i = Characters.Count - 1; i >= 0; i--)
+        {
+            var c = Characters[i];
+            if (c.IsOnline || offlineNames.Contains(c.CharacterName!)) continue;
+            Characters.RemoveAt(i);
+            changed = true;
+        }
+
+        foreach (var name in offlineNames)
+        {
+            if (Characters.Any(c => !c.IsOnline && string.Equals(c.CharacterName, name, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            Settings.Characters.TryGetValue(name, out var profile);
+            var card = new CharacterViewModel(this, name, profile?.ClassName)
+            {
+                Thumbnail = _portraits.Load(name),
+                IsLaunching = _launchRequestedAt.TryGetValue(name, out var at) && DateTime.UtcNow - at <= LaunchBadgeDuration,
+            };
+            Characters.Add(card);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>Ordre choisi par l'utilisateur ; les instances où personne n'est encore connecté vont à la fin.</summary>
     private void Sort()
     {
         var ordered = Characters
             .OrderBy(c => c.IsConnected ? 0 : 1)
             .ThenBy(c => c.Order)
+            .ThenBy(c => c.IsOnline ? 0 : 1)
             .ThenBy(c => c.ProcessId)
             .ToList();
         for (var i = 0; i < ordered.Count; i++)
@@ -245,7 +325,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _capturing = true;
         try
         {
-            var targets = Characters.Select(c => (c, c.Handle)).ToList();
+            var targets = Characters.Where(c => c.IsOnline).Select(c => (c, c.Handle)).ToList();
             foreach (var (vm, hwnd) in targets)
             {
                 var image = await Task.Run(() => WindowCapture.Capture(hwnd, 480));
@@ -301,14 +381,77 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Sort();
     }
 
+    // --- Lancement via Ankama Launcher ----------------------------------------------------
+
+    /// <summary>Demande une instance au launcher pour ce personnage. Renvoie faux si la demande a échoué.</summary>
+    private bool Launch(CharacterViewModel vm)
+    {
+        if (vm.CharacterName is not { } name) return false;
+        var error = GameLauncher.LaunchOne(Settings);
+        if (error is not null)
+        {
+            Log($"Lancement impossible : {error}");
+            return false;
+        }
+        _launchRequestedAt[name] = DateTime.UtcNow;
+        vm.IsLaunching = true;
+        Log($"Instance demandée au launcher pour {name} : connecte ce compte puis ce personnage dans la nouvelle fenêtre.");
+        return true;
+    }
+
+    private void LaunchNewInstance()
+    {
+        var error = GameLauncher.LaunchOne(Settings);
+        Log(error is null ? "Nouvelle instance demandée au launcher." : $"Lancement impossible : {error}");
+    }
+
+    /// <summary>Lance une instance par personnage hors ligne, avec une pause entre chaque pour ne pas saturer le launcher.</summary>
+    private async Task LaunchAllAsync()
+    {
+        var targets = Characters.Where(c => !c.IsOnline && !c.IsLaunching).ToList();
+        if (targets.Count == 0) return;
+
+        _launchingAll = true;
+        CommandManager.InvalidateRequerySuggested();
+        try
+        {
+            Log($"Lancement de {targets.Count} instance{(targets.Count > 1 ? "s" : "")}…");
+            for (var i = 0; i < targets.Count; i++)
+            {
+                if (i > 0) await Task.Delay(Math.Clamp(Settings.LaunchIntervalMs, 1000, 30000));
+                if (!Launch(targets[i])) break;
+            }
+        }
+        finally
+        {
+            _launchingAll = false;
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    /// <summary>Retire un personnage hors ligne de la liste (ses réglages et son image sont supprimés).</summary>
+    private void Forget(CharacterViewModel? vm)
+    {
+        if (vm is not { IsOnline: false, CharacterName: { } name }) return;
+        Settings.Characters.Remove(name);
+        if (Settings.IsLeader(name)) Settings.LeaderName = null;
+        _launchRequestedAt.Remove(name);
+        _portraits.Delete(name);
+        SaveSettings();
+        Characters.Remove(vm);
+        OnPropertyChanged(nameof(OfflineCount));
+        OnPropertyChanged(nameof(LaunchAllLabel));
+        Log($"Personnage retiré de la liste : {name}");
+    }
+
     private void OnHotkey(HotkeyAction action)
     {
-        var ordered = Characters.Where(c => c.IsConnected).Select(c => c.Handle).ToList();
+        var ordered = Characters.Where(c => c.IsOnline && c.IsConnected).Select(c => c.Handle).ToList();
         IntPtr? target = action switch
         {
             HotkeyAction.NextCharacter => CharacterCycler.Next(ordered, NativeMethods.GetForegroundWindow(), +1),
             HotkeyAction.PreviousCharacter => CharacterCycler.Next(ordered, NativeMethods.GetForegroundWindow(), -1),
-            HotkeyAction.FocusLeader => Characters.FirstOrDefault(c => c.IsLeader)?.Handle,
+            HotkeyAction.FocusLeader => Characters.FirstOrDefault(c => c.IsLeader && c.IsOnline)?.Handle,
             _ => null,
         };
         if (target is { } hwnd) WindowController.Focus(hwnd);
@@ -340,6 +483,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _scanTimer.Stop();
         _thumbnailTimer.Stop();
         _rescanSoon.Stop();
+        foreach (var c in Characters)
+            if (c is { IsOnline: true, CharacterName: { } name, Thumbnail: { } image }) _portraits.Save(name, image);
         _messages.Dispose();
         _automation.Dispose();
     }

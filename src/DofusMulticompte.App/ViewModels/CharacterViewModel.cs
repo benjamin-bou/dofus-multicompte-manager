@@ -15,6 +15,9 @@ public sealed class CharacterViewModel : ObservableObject
     private bool _isTurn;
     private BitmapSource? _thumbnail;
 
+    private bool _isLaunching;
+
+    /// <summary>Instance Dofus ouverte.</summary>
     public CharacterViewModel(MainViewModel owner, IntPtr hwnd, int processId)
     {
         _owner = owner;
@@ -22,8 +25,28 @@ public sealed class CharacterViewModel : ObservableObject
         ProcessId = processId;
     }
 
+    /// <summary>Personnage connu dont aucune instance n'est ouverte.</summary>
+    public CharacterViewModel(MainViewModel owner, string characterName, string? className)
+    {
+        _owner = owner;
+        _parsed = new ParsedTitle(characterName, className ?? "", DofusClasses.Find(className), "", "");
+    }
+
     public IntPtr Handle { get; }
     public int ProcessId { get; }
+
+    /// <summary>Vrai si une fenêtre Dofus correspond à cette carte.</summary>
+    public bool IsOnline => Handle != IntPtr.Zero;
+
+    /// <summary>Un lancement a été demandé au launcher pour ce personnage.</summary>
+    public bool IsLaunching
+    {
+        get => _isLaunching;
+        set
+        {
+            if (Set(ref _isLaunching, value)) OnPropertyChanged(nameof(AutomationSummary));
+        }
+    }
 
     public string Title
     {
@@ -47,6 +70,8 @@ public sealed class CharacterViewModel : ObservableObject
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(Level));
         OnPropertyChanged(nameof(IncludedInAutomation));
+        OnPropertyChanged(nameof(Order));
+        RefreshAutomationState();
         return changed;
     }
 
@@ -54,8 +79,10 @@ public sealed class CharacterViewModel : ObservableObject
     public string? CharacterName => _parsed?.CharacterName;
     public bool IsConnected => _parsed is not null;
     public string DisplayName => _parsed?.CharacterName ?? "Non connecté";
-    public string ClassName => _parsed is null ? $"PID {ProcessId}" : _parsed.KnownClass?.Name ?? _parsed.ClassName;
-    public string ClassInitial => _parsed is null ? "?" : ClassName[..1].ToUpperInvariant();
+    public string ClassName => _parsed is null
+        ? $"PID {ProcessId}"
+        : _parsed.KnownClass?.Name ?? (string.IsNullOrWhiteSpace(_parsed.ClassName) ? "Classe inconnue" : _parsed.ClassName);
+    public string ClassInitial => _parsed is null || string.IsNullOrWhiteSpace(_parsed.ClassName) ? "?" : ClassName[..1].ToUpperInvariant();
 
     public Brush ClassBrush
     {
@@ -128,14 +155,16 @@ public sealed class CharacterViewModel : ObservableObject
     public int Order => Profile?.Order ?? int.MaxValue;
 
     /// <summary>Résumé de ce qui se passera au début du tour de ce personnage.</summary>
-    public string AutomationSummary => TurnPolicy.Decide(_owner.Settings, CharacterName) switch
+    public string AutomationSummary => !IsOnline
+        ? (IsLaunching ? "Lancement demandé au launcher…" : "Hors ligne")
+        : TurnPolicy.Decide(_owner.Settings, CharacterName) switch
     {
         TurnAction.AutoPass => "Tour passé automatiquement",
         TurnAction.BringToFront => "Mis au premier plan à son tour",
         _ => IsConnected ? "Aucune action automatique" : "En attente de connexion",
     };
 
-    public bool WillAutoPass => TurnPolicy.ShouldAutoPass(_owner.Settings, CharacterName);
+    public bool WillAutoPass => IsOnline && TurnPolicy.ShouldAutoPass(_owner.Settings, CharacterName);
 
     public void RefreshAutomationState()
     {

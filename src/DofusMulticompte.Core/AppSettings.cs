@@ -13,6 +13,8 @@ public enum InputMode
 public sealed class CharacterProfile
 {
     public int? Level { get; set; }
+    /// <summary>Classe vue la dernière fois que le personnage était connecté (pour l'afficher hors ligne).</summary>
+    public string? ClassName { get; set; }
     public int Order { get; set; } = int.MaxValue;
     /// <summary>Si faux, le personnage est ignoré par toutes les automatisations.</summary>
     public bool IncludedInAutomation { get; set; } = true;
@@ -54,6 +56,13 @@ public sealed class AppSettings
     public List<string> ProcessNames { get; set; } = ["Dofus"];
 
     public HotkeySettings Hotkeys { get; set; } = new();
+
+    /// <summary>Identifiants du jeu dans Ankama Launcher, utilisés pour le lien de lancement.</summary>
+    public string LauncherGameUid { get; set; } = "dofus";
+    public string LauncherRelease { get; set; } = "dofus3";
+
+    /// <summary>Pause entre deux lancements avec « Tout lancer », pour laisser le launcher démarrer chaque instance.</summary>
+    public int LaunchIntervalMs { get; set; } = 4000;
 
     public Dictionary<string, CharacterProfile> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

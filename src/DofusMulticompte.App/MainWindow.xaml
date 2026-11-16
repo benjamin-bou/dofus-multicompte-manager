@@ -22,20 +22,20 @@
                     Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1">
                 <StackPanel>
                     <!-- Aperçu en direct de la fenêtre : cliquer pour l'afficher -->
-                    <Grid Height="169" Cursor="Hand" ToolTip="Afficher cette fenêtre">
+                    <Grid x:Name="preview" Height="169" Cursor="Hand" ToolTip="Afficher cette fenêtre">
                         <Grid.InputBindings>
                             <MouseBinding Gesture="LeftClick"
                                           Command="{Binding DataContext.FocusCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                           CommandParameter="{Binding}"/>
                         </Grid.InputBindings>
                         <Border CornerRadius="7,7,0,0" Background="{StaticResource Surface2}"/>
-                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                        <Image x:Name="thumb" Source="{Binding Thumbnail}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
                             <!-- Arrondit seulement les coins du haut : le rectangle déborde sous l'image. -->
                             <Image.Clip>
                                 <RectangleGeometry Rect="0,0,298,190" RadiusX="7" RadiusY="7"/>
                             </Image.Clip>
                         </Image>
-                        <TextBlock Text="Pas encore d'aperçu (fenêtre réduite ?)" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock x:Name="noPreview" Text="Pas encore d'aperçu (fenêtre réduite ?)" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -57,7 +57,16 @@
                                     Visibility="{Binding IsTurn, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="Son tour" Foreground="#0B2117" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
+                            <Border x:Name="offlineBadge" Background="{StaticResource Surface3}" CornerRadius="3" Padding="7,2" Visibility="Collapsed">
+                                <TextBlock x:Name="offlineText" Text="Hors ligne" FontWeight="SemiBold" FontSize="12"/>
+                            </Border>
                         </StackPanel>
+
+                        <Button x:Name="forgetBtn" Content="Retirer" Padding="8,2" Margin="8" Visibility="Collapsed"
+                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                ToolTip="Retirer ce personnage de la liste (ses réglages et son image sont supprimés)."
+                                Command="{Binding DataContext.ForgetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="{Binding}"/>
                     </Grid>
 
                     <StackPanel Margin="14,12,14,14">
@@ -108,9 +117,14 @@
                             <Button x:Name="leaderBtn" Content="Définir meneur"
                                     Command="{Binding DataContext.SetLeaderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                     CommandParameter="{Binding}"/>
-                            <Button Grid.Column="2" Content="Passer le tour"
+                            <Button x:Name="passBtn" Grid.Column="2" Content="Passer le tour"
                                     ToolTip="Envoie tout de suite la touche « Passer son tour » à cette fenêtre (pour tester la configuration)."
                                     Command="{Binding DataContext.TestPassCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"/>
+                            <Button x:Name="launchBtn" Grid.Column="2" Content="Lancer" Visibility="Collapsed"
+                                    Background="{StaticResource AccentSoft}"
+                                    ToolTip="Demande une instance à Ankama Launcher (compte actif du launcher). Connecte ensuite ce personnage dans la fenêtre qui s'ouvre."
+                                    Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                     CommandParameter="{Binding}"/>
                             <Button Grid.Column="4" Content="↑" Padding="9,5" ToolTip="Monter dans l'ordre de passage"
                                     Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -140,6 +154,21 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding WillAutoPass}" Value="True">
                     <Setter TargetName="dot" Property="Fill" Value="{StaticResource Auto}"/>
+                </DataTrigger>
+                <!-- Personnage connu sans instance ouverte -->
+                <DataTrigger Binding="{Binding IsOnline}" Value="False">
+                    <Setter TargetName="thumb" Property="Opacity" Value="0.35"/>
+                    <Setter TargetName="preview" Property="Cursor" Value="Arrow"/>
+                    <Setter TargetName="preview" Property="ToolTip" Value="Instance fermée"/>
+                    <Setter TargetName="noPreview" Property="Text" Value="Aucune image enregistrée"/>
+                    <Setter TargetName="offlineBadge" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="forgetBtn" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="passBtn" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="launchBtn" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLaunching}" Value="True">
+                    <Setter TargetName="offlineText" Property="Text" Value="Lancement…"/>
+                    <Setter TargetName="offlineBadge" Property="Background" Value="{StaticResource AccentSoft}"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -255,11 +284,21 @@
                 <RowDefinition Height="170"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Margin="28,24,28,14">
-                <TextBlock Text="Personnages" FontSize="18" FontWeight="SemiBold"/>
-                <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
-                           Text="Clique sur un aperçu pour afficher la fenêtre. L'ordre des cartes est l'ordre de passage des raccourcis."/>
-            </StackPanel>
+            <DockPanel Margin="28,24,28,14">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Button Content="Lancer une instance" Padding="12,7" Margin="0,0,8,0"
+                            ToolTip="Ouvre une nouvelle instance de Dofus via Ankama Launcher, sur le compte actif du launcher."
+                            Command="{Binding LaunchNewCommand}"/>
+                    <Button Content="{Binding LaunchAllLabel}" Padding="12,7" Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource Accent}"
+                            ToolTip="Ouvre une instance pour chaque personnage hors ligne, l'une après l'autre."
+                            Command="{Binding LaunchAllCommand}"/>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Personnages" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                               Text="Clique sur un aperçu pour afficher la fenêtre. L'ordre des cartes est l'ordre de passage des raccourcis."/>
+                </StackPanel>
+            </DockPanel>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="28,0,12,0">
                 <ItemsControl ItemsSource="{Binding Characters}" ItemTemplate="{StaticResource CharacterCard}">
