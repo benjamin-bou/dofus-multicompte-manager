@@ -64,6 +64,12 @@ public sealed class AppSettings
     /// <summary>Pause entre deux lancements avec « Tout lancer », pour laisser le launcher démarrer chaque instance.</summary>
     public int LaunchIntervalMs { get; set; } = 4000;
 
+    /// <summary>
+    /// Après un lancement depuis l'application, clique sur « Jouer » si le jeu s'arrête à l'écran
+    /// de choix du personnage. Ne concerne jamais une instance ouverte autrement.
+    /// </summary>
+    public bool AutoEnterGame { get; set; } = true;
+
     public Dictionary<string, CharacterProfile> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public CharacterProfile GetOrCreateProfile(string characterName)

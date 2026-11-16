@@ -12,6 +12,16 @@ namespace DofusMulticompte.App.Services;
 /// </summary>
 public static class WindowCapture
 {
+    /// <summary>Capture réduite sous forme de pixels BGR32 (4 octets par pixel), pour l'analyse d'image.</summary>
+    public static (byte[] Pixels, int Width, int Height, int Stride)? CapturePixels(IntPtr hwnd, int maxWidth)
+    {
+        if (Capture(hwnd, maxWidth) is not { } image) return null;
+        var stride = image.PixelWidth * 4;
+        var pixels = new byte[stride * image.PixelHeight];
+        image.CopyPixels(pixels, stride, 0);
+        return (pixels, image.PixelWidth, image.PixelHeight, stride);
+    }
+
     public static BitmapSource? Capture(IntPtr hwnd, int maxWidth)
     {
         if (!IsWindow(hwnd) || IsIconic(hwnd)) return null;

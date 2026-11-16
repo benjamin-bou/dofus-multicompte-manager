@@ -14,6 +14,15 @@ public static partial class WindowTitleParser
     [GeneratedRegex(@"^\s*(?<name>.+?)\s+-\s+(?<class>.+?)\s+-\s+(?<version>\d+(?:\.\d+)+)\s+-\s+(?<channel>.+?)\s*$")]
     private static partial Regex TitleRegex();
 
+    [GeneratedRegex(@"^\s*Dofus\s+\d+(?:\.\d+)+\s+-\s+\S.*$")]
+    private static partial Regex PreGameRegex();
+
+    /// <summary>
+    /// Vrai pour « Dofus 3.7.13.17 - Release » : le client est connecté au compte mais aucun
+    /// personnage n'est en jeu (choix du serveur ou du personnage).
+    /// </summary>
+    public static bool IsPreGameTitle(string? title) => title is not null && PreGameRegex().IsMatch(title);
+
     public static ParsedTitle? Parse(string? title)
     {
         if (string.IsNullOrWhiteSpace(title)) return null;

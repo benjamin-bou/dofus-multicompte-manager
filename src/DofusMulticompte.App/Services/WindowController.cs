@@ -81,6 +81,37 @@ public static class WindowController
         return true;
     }
 
+    /// <summary>
+    /// Clique à une position relative de la zone client : met la fenêtre au premier plan, déplace
+    /// le curseur, clique, puis remet le curseur où il était.
+    /// </summary>
+    public static bool ClickClient(IntPtr hwnd, RelativePoint point)
+    {
+        if (!Focus(hwnd) || !GetClientRect(hwnd, out var rect)) return false;
+        var target = new POINT
+        {
+            X = (int)Math.Round((rect.Right - rect.Left) * Math.Clamp(point.X, 0, 1)),
+            Y = (int)Math.Round((rect.Bottom - rect.Top) * Math.Clamp(point.Y, 0, 1)),
+        };
+        if (!ClientToScreen(hwnd, ref target)) return false;
+
+        GetCursorPos(out var previous);
+        SetCursorPos(target.X, target.Y);
+        Thread.Sleep(120); // laisse le jeu voir le survol du bouton
+        SendMouse(MOUSEEVENTF_LEFTDOWN);
+        Thread.Sleep(70);
+        SendMouse(MOUSEEVENTF_LEFTUP);
+        Thread.Sleep(80);
+        SetCursorPos(previous.X, previous.Y);
+        return true;
+    }
+
+    private static void SendMouse(uint flags)
+    {
+        var input = new INPUT { type = INPUT_MOUSE, U = new INPUTUNION { mi = new MOUSEINPUT { dwFlags = flags } } };
+        SendInput(1, [input], Marshal.SizeOf<INPUT>());
+    }
+
     private static List<ushort> ModifierKeys(KeyModifiers m)
     {
         var list = new List<ushort>();

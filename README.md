@@ -19,7 +19,8 @@ Application Windows (WPF, .NET 10) qui détecte les instances de Dofus ouvertes 
   - chaque personnage déjà vu reste dans la liste quand son instance est fermée (carte « Hors ligne », avec sa classe et sa dernière image) ;
   - « Lancer » sur une carte hors ligne, « Tout lancer » pour ouvrir une instance par personnage hors ligne (avec une pause de 4 s entre chaque), « Lancer une instance » pour en ouvrir une de plus ;
   - le lancement passe par Ankama Launcher (lien `zaap://actual/games/game/dofus/dofus3?launch`, la même action que son bouton « Jouer ») : l'application ne lit ni ne transmet aucun identifiant ;
-  - « Retirer » oublie un personnage hors ligne.
+  - « Retirer » oublie un personnage hors ligne ;
+  - option « Entrer en jeu automatiquement » (activée par défaut) : si une instance lancée depuis l'application s'arrête à l'écran de choix du personnage, l'application repère le bouton « Jouer » dans l'image de la fenêtre et clique dessus. Le personnage qui entre en jeu est celui présélectionné par Dofus (le dernier joué sur ce compte). Une instance ouverte autrement, ou un retour volontaire au choix du personnage, n'est jamais concerné.
 - **Raccourcis globaux** : personnage suivant, précédent, retour au meneur (par défaut `Ctrl+→`, `Ctrl+←`, `Ctrl+↑`). Ils suivent l'ordre des cartes, réglable avec ↑ et ↓.
 - **Journal** des détections, des tours et des actions.
 

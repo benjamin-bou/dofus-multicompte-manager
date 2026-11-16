@@ -28,6 +28,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly PortraitStore _portraits = new(PortraitStore.DefaultDirectory);
     private readonly Dictionary<string, DateTime> _launchRequestedAt = new(StringComparer.OrdinalIgnoreCase);
     private bool _launchingAll;
+
+    // Entrée automatique en jeu : lancements en attente d'une fenêtre, puis fenêtres surveillées.
+    private static readonly TimeSpan LaunchToWindowTimeout = TimeSpan.FromSeconds(120);
+    private static readonly TimeSpan CharacterSelectionTimeout = TimeSpan.FromSeconds(90);
+    private readonly Queue<DateTime> _pendingLaunches = new();
+    private readonly Dictionary<IntPtr, AutoPlayWatch> _autoPlayWatches = new();
+
+    private sealed class AutoPlayWatch(DateTime deadline)
+    {
+        public DateTime Deadline { get; } = deadline;
+        public bool Checking { get; set; }
+        /// <summary>Nombre de détections consécutives du bouton : on attend qu'il soit stable avant de cliquer.</summary>
+        public int Hits { get; set; }
+    }
     private bool _capturing;
     private DateTime _turnMarkedAt = DateTime.MinValue;
     private string _hotkeyStatus = "";
@@ -143,6 +157,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set => UpdateSetting(() => Settings.PassDelayMaxMs = Math.Clamp(value, 0, 10000));
     }
 
+    public bool AutoEnterGame
+    {
+        get => Settings.AutoEnterGame;
+        set => UpdateSetting(() => Settings.AutoEnterGame = value);
+    }
+
     public bool UseBackgroundInput
     {
         get => Settings.InputMode == InputMode.Background;
@@ -221,6 +241,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 vm = new CharacterViewModel(this, w.Handle, w.ProcessId);
                 vm.UpdateTitle(w.Title);
                 Characters.Add(vm);
+                ClaimPendingLaunch(vm);
                 Log(vm.IsConnected ? $"Instance détectée : {vm.DisplayName} ({vm.ClassName})" : $"Instance détectée (PID {w.ProcessId}), personnage pas encore connecté");
                 if (vm.IsConnected) RememberCharacter(vm);
                 needsSort = true;
@@ -234,6 +255,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         needsSort |= SyncOfflineCards();
+        WatchCharacterSelection();
 
         var foreground = NativeMethods.GetForegroundWindow();
         // Un tour de Dofus ne dépasse pas une minute : passé ce délai, le badge « Son tour » est périmé.
@@ -258,6 +280,70 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasCharacters));
         OnPropertyChanged(nameof(OfflineCount));
         OnPropertyChanged(nameof(LaunchAllLabel));
+    }
+
+    /// <summary>Une nouvelle fenêtre qui apparaît après un lancement demandé par l'application est surveillée.</summary>
+    private void ClaimPendingLaunch(CharacterViewModel vm)
+    {
+        while (_pendingLaunches.Count > 0 && DateTime.UtcNow - _pendingLaunches.Peek() > LaunchToWindowTimeout)
+            _pendingLaunches.Dequeue();
+        if (_pendingLaunches.Count == 0 || vm.IsConnected) return;
+        _pendingLaunches.Dequeue();
+        if (Settings.AutoEnterGame)
+            _autoPlayWatches[vm.Handle] = new AutoPlayWatch(DateTime.UtcNow + CharacterSelectionTimeout);
+    }
+
+    /// <summary>
+    /// Pour les instances lancées par l'application : si le client s'arrête au choix du personnage,
+    /// on repère le bouton « Jouer » dans la capture de la fenêtre et on clique dessus.
+    /// </summary>
+    private void WatchCharacterSelection()
+    {
+        foreach (var (hwnd, watch) in _autoPlayWatches.ToList())
+        {
+            var vm = Characters.FirstOrDefault(c => c.Handle == hwnd);
+            if (vm is null || vm.IsConnected || !Settings.AutoEnterGame)
+            {
+                _autoPlayWatches.Remove(hwnd); // fenêtre fermée, déjà en jeu, ou option désactivée
+                continue;
+            }
+            if (DateTime.UtcNow > watch.Deadline)
+            {
+                _autoPlayWatches.Remove(hwnd);
+                Log($"Choix du personnage non détecté sur l'instance PID {vm.ProcessId} : clique sur « Jouer » toi-même.");
+                continue;
+            }
+            if (watch.Checking || !WindowTitleParser.IsPreGameTitle(vm.Title)) continue;
+
+            watch.Checking = true;
+            _ = DetectAndClickPlayAsync(hwnd, vm.ProcessId, watch);
+        }
+    }
+
+    private async Task DetectAndClickPlayAsync(IntPtr hwnd, int processId, AutoPlayWatch watch)
+    {
+        try
+        {
+            var found = await Task.Run(() => WindowCapture.CapturePixels(hwnd, 480) is { } img
+                ? PlayButtonDetector.Find(img.Pixels, img.Width, img.Height, img.Stride)
+                : null);
+            if (found is not { } point)
+            {
+                watch.Hits = 0;
+                return;
+            }
+            if (++watch.Hits < 2) return; // attend une deuxième détection : l'écran a fini de s'afficher
+
+            _autoPlayWatches.Remove(hwnd);
+            _automation.Enqueue($"PID {processId}", () =>
+            {
+                var ok = WindowController.ClickClient(hwnd, point);
+                Log(ok
+                    ? $"Écran de choix du personnage détecté (PID {processId}) : clic sur « Jouer »."
+                    : $"Impossible de cliquer sur « Jouer » (PID {processId}).");
+            });
+        }
+        finally { watch.Checking = false; }
     }
 
     /// <summary>Mémorise un personnage vu en jeu (et sa classe) pour pouvoir l'afficher et le lancer plus tard.</summary>
@@ -394,14 +480,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return false;
         }
         _launchRequestedAt[name] = DateTime.UtcNow;
+        _pendingLaunches.Enqueue(DateTime.UtcNow);
         vm.IsLaunching = true;
-        Log($"Instance demandée au launcher pour {name} : connecte ce compte puis ce personnage dans la nouvelle fenêtre.");
+        Log($"Instance demandée au launcher pour {name} (compte actif du launcher).");
         return true;
     }
 
     private void LaunchNewInstance()
     {
         var error = GameLauncher.LaunchOne(Settings);
+        if (error is null) _pendingLaunches.Enqueue(DateTime.UtcNow);
         Log(error is null ? "Nouvelle instance demandée au launcher." : $"Lancement impossible : {error}");
     }
 

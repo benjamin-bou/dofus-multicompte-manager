@@ -249,6 +249,15 @@
                         </StackPanel>
                     </CheckBox>
 
+                    <TextBlock Text="LANCEMENT" Style="{StaticResource SectionTitle}"/>
+                    <CheckBox IsChecked="{Binding AutoEnterGame}">
+                        <StackPanel>
+                            <TextBlock Text="Entrer en jeu automatiquement"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="Après un lancement depuis l'application, clique sur « Jouer » si le jeu s'arrête au choix du personnage. Sans effet sur les instances ouvertes autrement."/>
+                        </StackPanel>
+                    </CheckBox>
+
                     <TextBlock Text="RACCOURCIS GLOBAUX" Style="{StaticResource SectionTitle}"/>
                     <Grid>
                         <Grid.ColumnDefinitions>

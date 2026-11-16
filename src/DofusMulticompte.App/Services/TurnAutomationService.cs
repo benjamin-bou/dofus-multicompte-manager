@@ -13,7 +13,7 @@ public sealed class TurnAutomationService : IDisposable
 {
     private sealed record WorkItem(IntPtr Hwnd, string CharacterName, TurnAction Action, string Key, InputMode Mode, int DelayMs);
 
-    private readonly BlockingCollection<WorkItem> _queue = new();
+    private readonly BlockingCollection<(string Label, Action Action)> _queue = new();
     private readonly SignalDebouncer<IntPtr> _debouncer = new();
     private readonly Thread _worker;
     private readonly Action<string> _log;
@@ -46,22 +46,27 @@ public sealed class TurnAutomationService : IDisposable
         var min = Math.Max(0, Math.Min(settings.PassDelayMinMs, settings.PassDelayMaxMs));
         var max = Math.Max(min, settings.PassDelayMaxMs);
         var delay = action == TurnAction.AutoPass ? Random.Shared.Next(min, max + 1) : 0;
-        _queue.Add(new WorkItem(hwnd, characterName, action, settings.PassTurnKey, settings.InputMode, delay));
+        Enqueue(new WorkItem(hwnd, characterName, action, settings.PassTurnKey, settings.InputMode, delay));
     }
 
     /// <summary>Passe le tour immédiatement (bouton de test de l'interface).</summary>
     public void PassTurnNow(IntPtr hwnd, string characterName, AppSettings settings) =>
-        _queue.Add(new WorkItem(hwnd, characterName, TurnAction.AutoPass, settings.PassTurnKey, settings.InputMode, 0));
+        Enqueue(new WorkItem(hwnd, characterName, TurnAction.AutoPass, settings.PassTurnKey, settings.InputMode, 0));
 
     public void BringToFront(IntPtr hwnd, string label) =>
-        _queue.Add(new WorkItem(hwnd, label, TurnAction.BringToFront, "", InputMode.Foreground, 0));
+        Enqueue(new WorkItem(hwnd, label, TurnAction.BringToFront, "", InputMode.Foreground, 0));
+
+    /// <summary>Exécute une action sur le thread de travail, à la suite des autres (jamais en parallèle).</summary>
+    public void Enqueue(string label, Action action) => _queue.Add((label, action));
+
+    private void Enqueue(WorkItem item) => Enqueue(item.CharacterName, () => Execute(item));
 
     private void Run()
     {
-        foreach (var item in _queue.GetConsumingEnumerable())
+        foreach (var (label, action) in _queue.GetConsumingEnumerable())
         {
-            try { Execute(item); }
-            catch (Exception ex) { _log($"Erreur pour {item.CharacterName} : {ex.Message}"); }
+            try { action(); }
+            catch (Exception ex) { _log($"Erreur pour {label} : {ex.Message}"); }
         }
     }
 
