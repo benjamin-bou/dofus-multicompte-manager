@@ -1,0 +1,325 @@
+﻿<Window x:Class="DofusMulticompte.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:DofusMulticompte.App.ViewModels"
+        xmlns:controls="clr-namespace:DofusMulticompte.App.Controls"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:MainViewModel}"
+        Title="Multicompte Dofus"
+        Width="1240" Height="800" MinWidth="900" MinHeight="600"
+        Background="{StaticResource Bg}"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        FontSize="13"
+        UseLayoutRounding="True">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <DataTemplate x:Key="CharacterCard" DataType="{x:Type vm:CharacterViewModel}">
+            <Border x:Name="card" Width="300" Margin="0,0,16,16" CornerRadius="8"
+                    Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                <StackPanel>
+                    <!-- Aperçu en direct de la fenêtre : cliquer pour l'afficher -->
+                    <Grid Height="169" Cursor="Hand" ToolTip="Afficher cette fenêtre">
+                        <Grid.InputBindings>
+                            <MouseBinding Gesture="LeftClick"
+                                          Command="{Binding DataContext.FocusCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          CommandParameter="{Binding}"/>
+                        </Grid.InputBindings>
+                        <Border CornerRadius="7,7,0,0" Background="{StaticResource Surface2}"/>
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                            <!-- Arrondit seulement les coins du haut : le rectangle déborde sous l'image. -->
+                            <Image.Clip>
+                                <RectangleGeometry Rect="0,0,298,190" RadiusX="7" RadiusY="7"/>
+                            </Image.Clip>
+                        </Image>
+                        <TextBlock Text="Pas encore d'aperçu (fenêtre réduite ?)" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Thumbnail}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="8">
+                            <Border Background="{StaticResource Accent}" CornerRadius="3" Padding="7,2" Margin="0,0,6,0"
+                                    Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Meneur" Foreground="#1A1408" FontWeight="SemiBold" FontSize="12"/>
+                            </Border>
+                            <Border Background="{StaticResource Turn}" CornerRadius="3" Padding="7,2"
+                                    Visibility="{Binding IsTurn, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Son tour" Foreground="#0B2117" FontWeight="SemiBold" FontSize="12"/>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Margin="14,12,14,14">
+                        <!-- Identité -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="36" Height="36" CornerRadius="6" Background="{Binding ClassBrush}" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ClassInitial}" FontSize="17" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding ClassName}" Style="{StaticResource Hint}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Niv." Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBox Width="46" Text="{Binding Level, UpdateSourceTrigger=LostFocus}" MaxLength="3"
+                                         HorizontalContentAlignment="Center"
+                                         ToolTip="Le client Dofus n'expose pas le niveau : saisis-le ici, il est mémorisé pour ce personnage."/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Ce qui se passera à son tour -->
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Ellipse x:Name="dot" Width="8" Height="8" Fill="{StaticResource Muted}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding AutomationSummary}" Margin="8,0,0,0" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <CheckBox Content="Inclure dans les automatisations" Margin="0,10,0,0"
+                                  IsChecked="{Binding IncludedInAutomation}" IsEnabled="{Binding IsConnected}"/>
+
+                        <!-- Actions -->
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="leaderBtn" Content="Définir meneur"
+                                    Command="{Binding DataContext.SetLeaderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"/>
+                            <Button Grid.Column="2" Content="Passer le tour"
+                                    ToolTip="Envoie tout de suite la touche « Passer son tour » à cette fenêtre (pour tester la configuration)."
+                                    Command="{Binding DataContext.TestPassCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"/>
+                            <Button Grid.Column="4" Content="↑" Padding="9,5" ToolTip="Monter dans l'ordre de passage"
+                                    Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"/>
+                            <Button Grid.Column="6" Content="↓" Padding="9,5" ToolTip="Descendre dans l'ordre de passage"
+                                    Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Muted}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLeader}" Value="True">
+                    <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                    <Setter TargetName="leaderBtn" Property="Content" Value="Retirer meneur"/>
+                    <Setter TargetName="leaderBtn" Property="Background" Value="{StaticResource AccentSoft}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTurn}" Value="True">
+                    <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Turn}"/>
+                    <Setter TargetName="card" Property="BorderThickness" Value="2"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding AutomationSummary}" Value="Mis au premier plan à son tour">
+                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Turn}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding WillAutoPass}" Value="True">
+                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Auto}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="340"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Colonne de réglages -->
+        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="24,22,24,24">
+                    <TextBlock Text="Multicompte Dofus" FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Hint}" Margin="0,4,0,0"/>
+
+                    <TextBlock Text="AU DÉBUT DU TOUR D'UN PERSONNAGE" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+
+                    <CheckBox IsChecked="{Binding BringTurnWindowToFront}">
+                        <StackPanel>
+                            <TextBlock Text="Mettre sa fenêtre au premier plan"/>
+                            <TextBlock Text="La fenêtre du personnage qui doit jouer passe devant les autres."
+                                       Style="{StaticResource Hint}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <CheckBox IsChecked="{Binding AutoPassFollowers}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Passer le tour de tous, sauf le meneur"/>
+                            <TextBlock Text="Pour chaque personnage inclus qui n'est pas le meneur." Style="{StaticResource Hint}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <CheckBox IsChecked="{Binding AutoPassLeader}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Passer aussi le tour du meneur"/>
+                            <TextBlock Text="Au cas où : le meneur passe lui aussi son tour automatiquement."
+                                       Style="{StaticResource Hint}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <TextBlock Text="PASSAGE DE TOUR" Style="{StaticResource SectionTitle}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="150"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Touche" VerticalAlignment="Center"/>
+                        <controls:HotkeyBox Grid.Column="1" Text="{Binding PassTurnKey, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <TextBlock Grid.Row="2" Text="Délai (ms)" VerticalAlignment="Center"/>
+                        <Grid Grid.Row="2" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding PassDelayMinMs, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center" Padding="2,4"/>
+                            <TextBlock Grid.Column="1" Text="à" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="5,0"/>
+                            <TextBox Grid.Column="2" Text="{Binding PassDelayMaxMs, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center" Padding="2,4"/>
+                        </Grid>
+                    </Grid>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                               Text="La touche doit correspondre au raccourci « Passer son tour » réglé dans Dofus (Options › Raccourcis). Le délai est tiré au hasard dans l'intervalle."/>
+
+                    <CheckBox IsChecked="{Binding UseBackgroundInput}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Envoyer la touche en arrière-plan"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="Expérimental : n'active pas la fenêtre, mais le client peut ignorer la touche. Désactivé, la fenêtre est activée un instant puis la main revient à la fenêtre précédente."/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <TextBlock Text="RACCOURCIS GLOBAUX" Style="{StaticResource SectionTitle}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="150"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Suivant" VerticalAlignment="Center"/>
+                        <controls:HotkeyBox Grid.Column="1" Text="{Binding HotkeyNext, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Grid.Row="2" Text="Précédent" VerticalAlignment="Center"/>
+                        <controls:HotkeyBox Grid.Row="2" Grid.Column="1" Text="{Binding HotkeyPrevious, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Grid.Row="4" Text="Meneur" VerticalAlignment="Center"/>
+                        <controls:HotkeyBox Grid.Row="4" Grid.Column="1" Text="{Binding HotkeyLeader, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
+                    <TextBlock Text="{Binding HotkeyStatus}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                               Text="Personnage suivant, précédent, ou retour au meneur. Ils fonctionnent depuis n'importe quelle fenêtre et suivent l'ordre des cartes."/>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Personnages et journal -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="170"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Margin="28,24,28,14">
+                <TextBlock Text="Personnages" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                           Text="Clique sur un aperçu pour afficher la fenêtre. L'ordre des cartes est l'ordre de passage des raccourcis."/>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="28,0,12,0">
+                <ItemsControl ItemsSource="{Binding Characters}" ItemTemplate="{StaticResource CharacterCard}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasCharacters}" Value="False">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <TextBlock Text="Aucune instance de Dofus ouverte" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Style="{StaticResource Hint}" TextAlignment="Center" Margin="0,6,0,0"
+                           Text="Lance Dofus depuis Ankama Launcher : chaque instance apparaîtra ici dès son ouverture, puis affichera le pseudo et la classe une fois le personnage connecté."/>
+            </StackPanel>
+
+            <!-- Journal -->
+            <Border Grid.Row="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+                <Grid Margin="28,12,28,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Effacer" Padding="8,2" Command="{Binding ClearLogCommand}"/>
+                        <TextBlock Text="JOURNAL" Style="{StaticResource SectionTitle}" Margin="0" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <ListBox Grid.Row="1" Margin="0,8,0,0" ItemsSource="{Binding LogEntries}" Background="Transparent" BorderThickness="0"
+                             Foreground="{StaticResource Muted}" FontSize="12" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0,1"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DofusMulticompte.Core/DofusMulticompte.Core.csproj" />
+    <Project Path="src/DofusMulticompte.App/DofusMulticompte.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DofusMulticompte.Core.Tests/DofusMulticompte.Core.Tests.csproj" />
+  </Folder>
+</Solution>
