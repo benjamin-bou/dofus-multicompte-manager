@@ -23,6 +23,9 @@ public static partial class WindowTitleParser
     /// </summary>
     public static bool IsPreGameTitle(string? title) => title is not null && PreGameRegex().IsMatch(title);
 
+    /// <summary>Vrai pour « Dofus » seul : le client démarre et ne s'est pas encore connecté au compte.</summary>
+    public static bool IsBootTitle(string? title) => string.Equals(title?.Trim(), "Dofus", StringComparison.Ordinal);
+
     public static ParsedTitle? Parse(string? title)
     {
         if (string.IsNullOrWhiteSpace(title)) return null;

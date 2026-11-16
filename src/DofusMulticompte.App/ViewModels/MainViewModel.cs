@@ -32,15 +32,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     // Entrée automatique en jeu : lancements en attente d'une fenêtre, puis fenêtres surveillées.
     private static readonly TimeSpan LaunchToWindowTimeout = TimeSpan.FromSeconds(120);
     private static readonly TimeSpan CharacterSelectionTimeout = TimeSpan.FromSeconds(90);
-    private readonly Queue<DateTime> _pendingLaunches = new();
+    private readonly Queue<PendingLaunch> _pendingLaunches = new();
     private readonly Dictionary<IntPtr, AutoPlayWatch> _autoPlayWatches = new();
 
-    private sealed class AutoPlayWatch(DateTime deadline)
+    /// <summary>Lancement demandé au launcher, en attente de sa fenêtre. <c>Attempt</c> vaut 1 au premier essai.</summary>
+    private sealed record PendingLaunch(DateTime RequestedAt, int Attempt, string? CharacterName);
+
+    private sealed class AutoPlayWatch(DateTime deadline, int attempt, string? characterName)
     {
-        public DateTime Deadline { get; } = deadline;
+        public DateTime Deadline { get; set; } = deadline;
+        public int Attempt { get; } = attempt;
+        public string? CharacterName { get; } = characterName;
         public bool Checking { get; set; }
         /// <summary>Nombre de détections consécutives du bouton : on attend qu'il soit stable avant de cliquer.</summary>
         public int Hits { get; set; }
+        /// <summary>Écran de chargement affiché en ce moment (nuages ou écran noir), et depuis quand.</summary>
+        public LoginScreenState? StuckState { get; set; }
+        public DateTime StuckSince { get; set; }
     }
     private bool _capturing;
     private DateTime _turnMarkedAt = DateTime.MinValue;
@@ -161,6 +169,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         get => Settings.AutoEnterGame;
         set => UpdateSetting(() => Settings.AutoEnterGame = value);
+    }
+
+    public bool RelaunchStuckInstances
+    {
+        get => Settings.RelaunchStuckInstances;
+        set => UpdateSetting(() => Settings.RelaunchStuckInstances = value);
     }
 
     public bool UseBackgroundInput
@@ -285,26 +299,27 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Une nouvelle fenêtre qui apparaît après un lancement demandé par l'application est surveillée.</summary>
     private void ClaimPendingLaunch(CharacterViewModel vm)
     {
-        while (_pendingLaunches.Count > 0 && DateTime.UtcNow - _pendingLaunches.Peek() > LaunchToWindowTimeout)
+        while (_pendingLaunches.Count > 0 && DateTime.UtcNow - _pendingLaunches.Peek().RequestedAt > LaunchToWindowTimeout)
             _pendingLaunches.Dequeue();
         if (_pendingLaunches.Count == 0 || vm.IsConnected) return;
-        _pendingLaunches.Dequeue();
-        if (Settings.AutoEnterGame)
-            _autoPlayWatches[vm.Handle] = new AutoPlayWatch(DateTime.UtcNow + CharacterSelectionTimeout);
+        var launch = _pendingLaunches.Dequeue();
+        if (Settings.AutoEnterGame || Settings.RelaunchStuckInstances)
+            _autoPlayWatches[vm.Handle] = new AutoPlayWatch(DateTime.UtcNow + CharacterSelectionTimeout, launch.Attempt, launch.CharacterName);
     }
 
     /// <summary>
-    /// Pour les instances lancées par l'application : si le client s'arrête au choix du personnage,
-    /// on repère le bouton « Jouer » dans la capture de la fenêtre et on clique dessus.
+    /// Pour les instances lancées par l'application, une fois le compte connecté (titre « Dofus x.y - … ») :
+    /// clique sur « Jouer » si le jeu s'arrête au choix du personnage, et relance l'instance si elle reste
+    /// bloquée sur le fond de nuages.
     /// </summary>
     private void WatchCharacterSelection()
     {
         foreach (var (hwnd, watch) in _autoPlayWatches.ToList())
         {
             var vm = Characters.FirstOrDefault(c => c.Handle == hwnd);
-            if (vm is null || vm.IsConnected || !Settings.AutoEnterGame)
+            if (vm is null || vm.IsConnected || !(Settings.AutoEnterGame || Settings.RelaunchStuckInstances))
             {
-                _autoPlayWatches.Remove(hwnd); // fenêtre fermée, déjà en jeu, ou option désactivée
+                _autoPlayWatches.Remove(hwnd); // fenêtre fermée, déjà en jeu, ou options désactivées
                 continue;
             }
             if (DateTime.UtcNow > watch.Deadline)
@@ -313,23 +328,50 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Log($"Choix du personnage non détecté sur l'instance PID {vm.ProcessId} : clique sur « Jouer » toi-même.");
                 continue;
             }
-            if (watch.Checking || !WindowTitleParser.IsPreGameTitle(vm.Title)) continue;
+            // « Dofus » : démarrage (écran noir possible) ; « Dofus x.y - … » : compte connecté, choix du personnage.
+            if (watch.Checking || !(WindowTitleParser.IsBootTitle(vm.Title) || WindowTitleParser.IsPreGameTitle(vm.Title))) continue;
 
             watch.Checking = true;
-            _ = DetectAndClickPlayAsync(hwnd, vm.ProcessId, watch);
+            _ = AnalyzeLoginScreenAsync(hwnd, vm.ProcessId, watch);
         }
     }
 
-    private async Task DetectAndClickPlayAsync(IntPtr hwnd, int processId, AutoPlayWatch watch)
+    private async Task AnalyzeLoginScreenAsync(IntPtr hwnd, int processId, AutoPlayWatch watch)
     {
         try
         {
-            var found = await Task.Run(() => WindowCapture.CapturePixels(hwnd, 480) is { } img
-                ? PlayButtonDetector.Find(img.Pixels, img.Width, img.Height, img.Stride)
-                : null);
-            if (found is not { } point)
+            var hung = false;
+            var img = await WindowCapture.CapturePixelsAsync(hwnd, 480, () => hung = true);
+            var analysis = hung
+                ? new LoginScreenAnalysis(LoginScreenState.NotResponding, null)
+                : img is { } i
+                    ? LoginScreenAnalyzer.Analyze(i.Pixels, i.Width, i.Height, i.Stride)
+                    : new LoginScreenAnalysis(LoginScreenState.Unknown, null);
+
+            if (analysis.State is LoginScreenState.LoadingClouds or LoginScreenState.BlackScreen or LoginScreenState.NotResponding)
             {
                 watch.Hits = 0;
+                // Le minuteur repart à chaque changement d'écran : passer du noir aux nuages est un progrès.
+                if (watch.StuckState != analysis.State)
+                {
+                    watch.StuckState = analysis.State;
+                    watch.StuckSince = DateTime.UtcNow;
+                }
+                var stuckFor = DateTime.UtcNow - watch.StuckSince;
+                if (Settings.RelaunchStuckInstances && stuckFor >= TimeSpan.FromMilliseconds(Math.Max(5000, Settings.StuckLoadingTimeoutMs)))
+                    await RelaunchStuckInstanceAsync(hwnd, processId, watch, analysis.State, stuckFor);
+                return;
+            }
+
+            watch.StuckState = null;
+            if (analysis.State != LoginScreenState.PlayButton || analysis.PlayButton is not { } point)
+            {
+                watch.Hits = 0;
+                return;
+            }
+            if (!Settings.AutoEnterGame)
+            {
+                _autoPlayWatches.Remove(hwnd); // l'écran de choix est atteint : plus rien à surveiller
                 return;
             }
             if (++watch.Hits < 2) return; // attend une deuxième détection : l'écran a fini de s'afficher
@@ -344,6 +386,55 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             });
         }
         finally { watch.Checking = false; }
+    }
+
+    /// <summary>
+    /// Ferme une instance restée bloquée sur le fond de nuages et en redemande une au launcher.
+    /// Pas de limite d'essais : on recommence tant que le chargement bloque (l'option peut être décochée).
+    /// </summary>
+    private async Task RelaunchStuckInstanceAsync(IntPtr hwnd, int processId, AutoPlayWatch watch, LoginScreenState state, TimeSpan stuckFor)
+    {
+        _autoPlayWatches.Remove(hwnd);
+        var next = watch.Attempt + 1;
+        var reason = state switch
+        {
+            LoginScreenState.BlackScreen => "bloquée sur l'écran noir de démarrage",
+            LoginScreenState.NotResponding => "gelée (ne répond plus)",
+            _ => "bloquée sur les nuages de chargement",
+        };
+        Log($"Instance PID {processId} {reason} depuis {stuckFor.TotalSeconds:F0} s : fermeture puis relance (essai {next}).");
+
+        await Task.Run(() => CloseProcess(processId, force: state == LoginScreenState.NotResponding));
+        await Task.Delay(2000); // laisse le serveur libérer la session avant de se reconnecter
+
+        var error = GameLauncher.LaunchOne(Settings);
+        if (error is not null)
+        {
+            Log($"Relance impossible : {error}");
+            return;
+        }
+        _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, next, watch.CharacterName));
+        if (watch.CharacterName is { } name) _launchRequestedAt[name] = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Demande la fermeture de la fenêtre, puis force l'arrêt si le client ne répond pas dans les 10 s.
+    /// Un client gelé (<paramref name="force"/>) ne traitera jamais la demande : on l'arrête directement.
+    /// </summary>
+    private static void CloseProcess(int processId, bool force)
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(processId);
+            if (!force) process.CloseMainWindow();
+            if (force || !process.WaitForExit(10000))
+            {
+                process.Kill();
+                process.WaitForExit(5000);
+            }
+        }
+        catch (ArgumentException) { } // déjà fermé
+        catch (InvalidOperationException) { }
     }
 
     /// <summary>Mémorise un personnage vu en jeu (et sa classe) pour pouvoir l'afficher et le lancer plus tard.</summary>
@@ -414,8 +505,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var targets = Characters.Where(c => c.IsOnline).Select(c => (c, c.Handle)).ToList();
             foreach (var (vm, hwnd) in targets)
             {
-                var image = await Task.Run(() => WindowCapture.Capture(hwnd, 480));
-                if (image is not null) vm.Thumbnail = image; // fenêtre réduite : on garde la dernière image
+                // Fenêtre réduite ou gelée : on garde la dernière image, sans jamais bloquer les autres aperçus.
+                var capture = await WindowCapture.CaptureAsync(hwnd, 480);
+                if (capture.Image is { } image) vm.Thumbnail = image;
             }
         }
         finally { _capturing = false; }
@@ -480,7 +572,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return false;
         }
         _launchRequestedAt[name] = DateTime.UtcNow;
-        _pendingLaunches.Enqueue(DateTime.UtcNow);
+        _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, 1, name));
         vm.IsLaunching = true;
         Log($"Instance demandée au launcher pour {name} (compte actif du launcher).");
         return true;
@@ -489,7 +581,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void LaunchNewInstance()
     {
         var error = GameLauncher.LaunchOne(Settings);
-        if (error is null) _pendingLaunches.Enqueue(DateTime.UtcNow);
+        if (error is null) _pendingLaunches.Enqueue(new PendingLaunch(DateTime.UtcNow, 1, null));
         Log(error is null ? "Nouvelle instance demandée au launcher." : $"Lancement impossible : {error}");
     }
 

@@ -12,10 +12,37 @@ namespace DofusMulticompte.App.Services;
 /// </summary>
 public static class WindowCapture
 {
-    /// <summary>Capture réduite sous forme de pixels BGR32 (4 octets par pixel), pour l'analyse d'image.</summary>
-    public static (byte[] Pixels, int Width, int Height, int Stride)? CapturePixels(IntPtr hwnd, int maxWidth)
+    /// <summary>Résultat d'une capture : <c>Hung</c> est vrai si la fenêtre ne répond plus.</summary>
+    public readonly record struct CaptureResult(BitmapSource? Image, bool Hung);
+
+    private static readonly TimeSpan CaptureTimeout = TimeSpan.FromSeconds(3);
+
+    // Captures en cours par fenêtre : une capture bloquée sur une fenêtre gelée ne doit pas en empiler d'autres.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<IntPtr, Task<BitmapSource?>> InFlight = new();
+
+    /// <summary>
+    /// Capture sans jamais rester bloqué : PrintWindow attend indéfiniment une fenêtre gelée.
+    /// Une fenêtre signalée comme gelée par Windows, ou dont la capture dépasse 3 s, est renvoyée comme <c>Hung</c>.
+    /// </summary>
+    public static async Task<CaptureResult> CaptureAsync(IntPtr hwnd, int maxWidth)
     {
-        if (Capture(hwnd, maxWidth) is not { } image) return null;
+        if (IsHungAppWindow(hwnd)) return new(null, true);
+        if (InFlight.TryGetValue(hwnd, out var pending) && !pending.IsCompleted) return new(null, true);
+
+        var task = Task.Run(() => Capture(hwnd, maxWidth));
+        InFlight[hwnd] = task;
+        _ = task.ContinueWith(_ => InFlight.TryRemove(new KeyValuePair<IntPtr, Task<BitmapSource?>>(hwnd, task)), TaskScheduler.Default);
+
+        var finished = await Task.WhenAny(task, Task.Delay(CaptureTimeout));
+        return finished == task ? new(await task, false) : new(null, true);
+    }
+
+    /// <summary>Capture réduite sous forme de pixels BGR32 (4 octets par pixel), pour l'analyse d'image.</summary>
+    public static async Task<(byte[] Pixels, int Width, int Height, int Stride)?> CapturePixelsAsync(IntPtr hwnd, int maxWidth, Action onHung)
+    {
+        var result = await CaptureAsync(hwnd, maxWidth);
+        if (result.Hung) onHung();
+        if (result.Image is not { } image) return null;
         var stride = image.PixelWidth * 4;
         var pixels = new byte[stride * image.PixelHeight];
         image.CopyPixels(pixels, stride, 0);

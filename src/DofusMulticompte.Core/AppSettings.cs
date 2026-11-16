@@ -70,6 +70,15 @@ public sealed class AppSettings
     /// </summary>
     public bool AutoEnterGame { get; set; } = true;
 
+    /// <summary>
+    /// Ferme et relance, sans limite d'essais, une instance lancée par l'application qui reste bloquée
+    /// sur le fond de nuages (ni liste de personnages ni bouton « Jouer »).
+    /// </summary>
+    public bool RelaunchStuckInstances { get; set; } = true;
+
+    /// <summary>Durée passée sur le fond de nuages avant de considérer l'instance comme bloquée.</summary>
+    public int StuckLoadingTimeoutMs { get; set; } = 15000;
+
     public Dictionary<string, CharacterProfile> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public CharacterProfile GetOrCreateProfile(string characterName)

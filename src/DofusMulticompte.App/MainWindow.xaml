@@ -257,6 +257,13 @@
                                        Text="Après un lancement depuis l'application, clique sur « Jouer » si le jeu s'arrête au choix du personnage. Sans effet sur les instances ouvertes autrement."/>
                         </StackPanel>
                     </CheckBox>
+                    <CheckBox IsChecked="{Binding RelaunchStuckInstances}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Relancer les instances bloquées"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="Si une instance lancée depuis l'application reste 15 s sur le fond de nuages sans liste de personnages, ou sur l'écran noir de démarrage, elle est fermée et relancée, jusqu'à ce que le chargement aboutisse."/>
+                        </StackPanel>
+                    </CheckBox>
 
                     <TextBlock Text="RACCOURCIS GLOBAUX" Style="{StaticResource SectionTitle}"/>
                     <Grid>
