@@ -8,6 +8,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance vm:MainViewModel}"
         Title="Multicompte Dofus"
+        Icon="/Assets/app.ico"
         Width="1240" Height="800" MinWidth="980" MinHeight="600"
         Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
         FontFamily="Segoe UI Variable Text, Segoe UI"
@@ -358,10 +359,8 @@
                         <DockPanel Margin="14,20,14,16">
                             <!-- Identité de l'application -->
                             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,26">
-                                <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource Accent}">
-                                    <TextBlock Text="&#xE716;" Style="{StaticResource Icon}" FontSize="16" Foreground="{StaticResource OnAccent}"
-                                               HorizontalAlignment="Center"/>
-                                </Border>
+                                <Image Source="/Assets/logo.png" Width="36" Height="36"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
                                     <TextBlock Text="Multicompte" FontSize="14" FontWeight="SemiBold"/>
                                     <TextBlock Text="Dofus 3" Style="{StaticResource Hint}" FontSize="11"/>

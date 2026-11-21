@@ -7,7 +7,12 @@
     <AssemblyName>DofusMulticompte</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\logo.png" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DofusMulticompte.Core\DofusMulticompte.Core.csproj" />
   </ItemGroup>
