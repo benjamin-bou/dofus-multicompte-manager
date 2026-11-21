@@ -27,7 +27,7 @@ Application Windows (WPF, .NET 10) qui détecte les instances de Dofus ouvertes 
   - quand plusieurs lancements sont proches (« Tout lancer », ou plusieurs « Lancer » d'affilée), une seule notification suit la progression « 1/3 connectés », « 2/3 »… puis « Tous connectés » ;
   - une alerte brève à chaque relance d'une connexion bloquée, avec le numéro d'essai ; le nombre de relances est rappelé à la connexion ;
   - le bouton « Tester » des réglages affiche un exemple.
-- **Raccourcis globaux** : personnage suivant, précédent, retour au meneur (par défaut `Ctrl+→`, `Ctrl+←`, `Ctrl+↑`). Ils suivent l'ordre des cartes, réglable avec ↑ et ↓.
+- **Raccourcis globaux** : personnage suivant, précédent, retour au meneur (par défaut `Ctrl+→`, `Ctrl+←`, `Ctrl+↑`). Ils suivent l'ordre des cartes, réglable avec ↑ et ↓. Chaque raccourci accepte une touche seule, une combinaison, ou un bouton de souris : boutons latéraux (`Souris4`, `Souris5`) ou clic molette (`Molette`), avec ou sans Ctrl/Alt/Shift. Un bouton de souris associé à un raccourci est intercepté et n'agit plus dans les autres applications.
 - **Journal** des détections, des tours et des actions.
 
 ## Réglages à faire dans Dofus

@@ -295,15 +295,15 @@
                             <RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBlock Text="Suivant" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox Grid.Column="1" Text="{Binding HotkeyNext, UpdateSourceTrigger=PropertyChanged}"/>
+                        <controls:HotkeyBox AllowMouse="True" Grid.Column="1" Text="{Binding HotkeyNext, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Row="2" Text="Précédent" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox Grid.Row="2" Grid.Column="1" Text="{Binding HotkeyPrevious, UpdateSourceTrigger=PropertyChanged}"/>
+                        <controls:HotkeyBox AllowMouse="True" Grid.Row="2" Grid.Column="1" Text="{Binding HotkeyPrevious, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Row="4" Text="Meneur" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox Grid.Row="4" Grid.Column="1" Text="{Binding HotkeyLeader, UpdateSourceTrigger=PropertyChanged}"/>
+                        <controls:HotkeyBox AllowMouse="True" Grid.Row="4" Grid.Column="1" Text="{Binding HotkeyLeader, UpdateSourceTrigger=PropertyChanged}"/>
                     </Grid>
                     <TextBlock Text="{Binding HotkeyStatus}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"/>
                     <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
-                               Text="Personnage suivant, précédent, ou retour au meneur. Ils fonctionnent depuis n'importe quelle fenêtre et suivent l'ordre des cartes."/>
+                               Text="Personnage suivant, précédent, ou retour au meneur. Ils fonctionnent depuis n'importe quelle fenêtre et suivent l'ordre des cartes. Une touche seule, une combinaison, ou un bouton de souris : clique dans le champ puis appuie sur un bouton latéral (Souris4, Souris5) ou sur la molette. Un bouton de souris associé à un raccourci n'agit plus ailleurs (par exemple « Précédent » dans le navigateur)."/>
                 </StackPanel>
             </ScrollViewer>
         </Border>

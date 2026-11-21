@@ -1,4 +1,5 @@
 using System.Windows.Interop;
+using System.Windows.Threading;
 using DofusMulticompte.App.Interop;
 using DofusMulticompte.Core;
 
@@ -16,6 +17,7 @@ public sealed class NativeMessageWindow : IDisposable
     private readonly HwndSource _source;
     private readonly uint _shellHookMessage;
     private readonly HashSet<int> _registeredHotkeys = [];
+    private readonly MouseHotkeyHook _mouseHook;
 
     /// <summary>Une fenêtre clignote dans la barre des tâches (Dofus le fait en début de tour).</summary>
     public event Action<IntPtr>? WindowFlashed;
@@ -36,6 +38,7 @@ public sealed class NativeMessageWindow : IDisposable
         };
         _source = new HwndSource(p);
         _source.AddHook(WndProc);
+        _mouseHook = new MouseHotkeyHook(Dispatcher.CurrentDispatcher, a => HotkeyPressed?.Invoke(a));
         _shellHookMessage = NativeMethods.RegisterWindowMessage("SHELLHOOK");
         NativeMethods.RegisterShellHookWindow(_source.Handle);
     }
@@ -45,15 +48,22 @@ public sealed class NativeMessageWindow : IDisposable
     {
         UnregisterHotkeys();
         var failures = new List<string>();
-        Register(HotkeyAction.NextCharacter, hotkeys.NextCharacter, failures);
-        Register(HotkeyAction.PreviousCharacter, hotkeys.PreviousCharacter, failures);
-        Register(HotkeyAction.FocusLeader, hotkeys.FocusLeader, failures);
+        var mouse = new List<(HotkeyAction, KeyGesture)>();
+        Register(HotkeyAction.NextCharacter, hotkeys.NextCharacter, failures, mouse);
+        Register(HotkeyAction.PreviousCharacter, hotkeys.PreviousCharacter, failures, mouse);
+        Register(HotkeyAction.FocusLeader, hotkeys.FocusLeader, failures, mouse);
+        failures.AddRange(_mouseHook.SetBindings(mouse));
         return failures;
     }
 
-    private void Register(HotkeyAction action, string? text, List<string> failures)
+    private void Register(HotkeyAction action, string? text, List<string> failures, List<(HotkeyAction, KeyGesture)> mouse)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
+        if (KeyGesture.TryParse(text, out var mg) && mg.IsMouse)
+        {
+            mouse.Add((action, mg));
+            return;
+        }
         if (!KeyGesture.TryParse(text, out var g) || !KeyMap.TryGetVirtualKey(g.Key, out var vk))
         {
             failures.Add(text);
@@ -102,6 +112,7 @@ public sealed class NativeMessageWindow : IDisposable
     public void Dispose()
     {
         UnregisterHotkeys();
+        _mouseHook.Dispose();
         NativeMethods.DeregisterShellHookWindow(_source.Handle);
         _source.RemoveHook(WndProc);
         _source.Dispose();

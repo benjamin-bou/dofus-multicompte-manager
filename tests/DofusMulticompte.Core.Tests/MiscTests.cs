@@ -52,6 +52,37 @@ public class KeyGestureTests
     [InlineData("Hyper+F1")]
     public void TryParse_Invalide(string text) => Assert.False(KeyGesture.TryParse(text, out _));
 
+    [Theory]
+    [InlineData("Souris4", KeyModifiers.None, MouseButton.X1)]
+    [InlineData("Souris5", KeyModifiers.None, MouseButton.X2)]
+    [InlineData("Molette", KeyModifiers.None, MouseButton.Middle)]
+    [InlineData("Ctrl+souris5", KeyModifiers.Ctrl, MouseButton.X2)]
+    [InlineData("Mouse4", KeyModifiers.None, MouseButton.X1)]
+    public void TryParse_BoutonSouris(string text, KeyModifiers mods, MouseButton button)
+    {
+        Assert.True(KeyGesture.TryParse(text, out var g));
+        Assert.Equal(mods, g.Modifiers);
+        Assert.Equal(button, g.MouseButton);
+        Assert.True(g.IsMouse);
+    }
+
+    [Theory]
+    [InlineData("F1")]
+    [InlineData("Ctrl+Right")]
+    [InlineData("D4")]
+    public void Clavier_NEstPasUnBoutonSouris(string text)
+    {
+        Assert.True(KeyGesture.TryParse(text, out var g));
+        Assert.False(g.IsMouse);
+    }
+
+    [Fact]
+    public void BoutonSouris_NomAllerRetour()
+    {
+        foreach (var b in new[] { MouseButton.X1, MouseButton.X2, MouseButton.Middle })
+            Assert.Equal(b, KeyGesture.ParseMouseButton(KeyGesture.MouseButtonName(b)));
+    }
+
     [Fact]
     public void ToString_OrdreStable() =>
         Assert.Equal("Ctrl+Alt+Shift+F5", new KeyGesture(KeyModifiers.Shift | KeyModifiers.Alt | KeyModifiers.Ctrl, "F5").ToString());
