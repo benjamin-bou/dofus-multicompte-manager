@@ -8,17 +8,16 @@ Application Windows (WPF, .NET 10) qui détecte les instances de Dofus ouvertes 
 - **Infos du personnage** :
   - le **pseudo** et la **classe** sont lus dans le titre de la fenêtre (`Tikoko - Zobal - 3.7.13.17 - Release`) ;
   - l'**image** est un aperçu en direct de la fenêtre, rafraîchi toutes les 2,5 s, même quand elle est cachée derrière d'autres ;
-  - le **niveau** n'est exposé nulle part par le client : il se saisit sur la carte et reste mémorisé pour ce pseudo.
-- **Meneur** : le bouton « Définir meneur » d'une carte, mémorisé par pseudo.
+- **Meneur** : l'étoile d'un personnage (carte ou ligne) le définit comme meneur, mémorisé par pseudo.
 - **Au début du tour d'un personnage** :
   - « Mettre sa fenêtre au premier plan » : la fenêtre du personnage qui doit jouer passe devant ;
   - « Passer le tour de tous, sauf le meneur » ;
   - « Passer aussi le tour du meneur » ;
-  - la case « Inclure dans les automatisations » d'une carte exclut ce personnage de tout automatisme.
+  - l'interrupteur « Auto » d'un personnage l'exclut de tout automatisme quand il est désactivé.
 - **Hors combat** (option « Afficher la fenêtre sur une demande d'échange », désactivée par défaut) : quand une fenêtre clignote hors combat (demande d'échange, invitation…), elle passe au premier plan au lieu d'être traitée comme un début de tour. Le combat est reconnu au bouton vert « FIN DE TOUR » en bas à droite de la capture ; si la fenêtre ne peut pas être capturée, le clignotement reste traité comme un tour. Il faut activer dans Dofus la notification externe des demandes d'échange.
 - **Lancement des instances** :
   - chaque personnage déjà vu reste dans la liste quand son instance est fermée (carte « Hors ligne », avec sa classe et sa dernière image) ;
-  - « Lancer » sur une carte hors ligne, « Tout lancer » pour ouvrir une instance par personnage hors ligne (avec une pause de 4 s entre chaque), « Lancer une instance » pour en ouvrir une de plus ;
+  - le bouton ▷ d'un personnage hors ligne, « Tout lancer » pour ouvrir une instance par personnage hors ligne (avec une pause de 4 s entre chaque), « Nouvelle instance » pour en ouvrir une de plus ;
   - le lancement passe par Ankama Launcher (lien `zaap://actual/games/game/dofus/dofus3?launch`, la même action que son bouton « Jouer ») : l'application ne lit ni ne transmet aucun identifiant ;
   - « Retirer » oublie un personnage hors ligne ;
   - option « Entrer en jeu automatiquement » (activée par défaut) : si une instance lancée depuis l'application s'arrête sur un écran avec un bouton « Jouer » (écran d'accueil sous le logo, puis choix du personnage), l'application repère le bouton dans l'image de la fenêtre et clique dessus, écran après écran, jusqu'à l'entrée en jeu. Le personnage qui entre en jeu est celui présélectionné par Dofus (le dernier joué sur ce compte). Une instance ouverte autrement, ou un retour volontaire au choix du personnage, n'est jamais concerné ;
@@ -28,17 +27,21 @@ Application Windows (WPF, .NET 10) qui détecte les instances de Dofus ouvertes 
   - quand plusieurs lancements sont proches (« Tout lancer », ou plusieurs « Lancer » d'affilée), une seule notification suit la progression « 1/3 connectés », « 2/3 »… puis « Tous connectés » ;
   - une alerte brève à chaque relance d'une connexion bloquée, avec le numéro d'essai ; le nombre de relances est rappelé à la connexion ;
   - le bouton « Tester » des réglages affiche un exemple.
-- **Raccourcis globaux** : personnage suivant, précédent, retour au meneur (par défaut `Ctrl+→`, `Ctrl+←`, `Ctrl+↑`). Ils suivent l'ordre des cartes, réglable avec ↑ et ↓. Chaque raccourci accepte une touche seule, une combinaison, ou un bouton de souris : boutons latéraux (`Souris4`, `Souris5`) ou clic molette (`Molette`), avec ou sans Ctrl/Alt/Shift. Un bouton de souris associé à un raccourci est intercepté et n'agit plus dans les autres applications.
+- **Raccourcis globaux** : personnage suivant, précédent, retour au meneur (par défaut `Ctrl+→`, `Ctrl+←`, `Ctrl+↑`). Ils suivent l'ordre de la page Personnages, réglable avec les flèches de chaque personnage. Chaque raccourci accepte une touche seule, une combinaison, ou un bouton de souris : boutons latéraux (`Souris4`, `Souris5`) ou clic molette (`Molette`), avec ou sans Ctrl/Alt/Shift. Un bouton de souris associé à un raccourci est intercepté et n'agit plus dans les autres applications.
 - **Barre de personnages flottante** (désactivable) : une icône par personnage en ligne, dans l'ordre de passage, toujours visible par-dessus le jeu. Un clic affiche sa fenêtre ; anneau blanc pour la fenêtre active, vert pour le tour en cours, pastille dorée pour le meneur. Elle ne prend jamais le focus, se déplace par sa poignée (position mémorisée) et peut être verticale (par défaut, étroite : les noms restent dans l'info-bulle).
 - **Image des personnages** : par défaut, la tête de base de la classe, téléchargée une seule fois depuis DofusDB puis gardée en cache dans `%APPDATA%\DofusMulticompte\classes` (aucune image du jeu n'est incluse dans le dépôt). Pour afficher le vrai personnage, avec son chapeau et ses couleurs, clique sur sa vignette (carte ou liste) ou fais un clic droit sur son icône dans la barre : une capture de sa fenêtre s'ouvre, il suffit d'encadrer le personnage à la souris.
-- **Affichage en cartes ou en liste** : le sélecteur « Cartes / Liste » au-dessus des personnages passe à une liste compacte d'une ligne par personnage, avec les mêmes actions.
+- **Affichage en cartes ou en liste** : le sélecteur en haut de la page Personnages passe à une liste compacte d'une ligne par personnage, avec les mêmes actions.
 - **Clic sur toutes les fenêtres** (désactivé tant qu'aucun raccourci n'est choisi) : le raccourci clique à l'endroit pointé dans la fenêtre de chaque personnage inclus dans les automatisations, à la même position relative, puis dans la fenêtre de départ qui reste devant. Une seule action déclenche alors une action par personnage : c'est le type de fonction qu'Ankama tolère le moins.
-- **Journal** des détections, des tours et des actions.
+- **Journal** des détections, des tours et des actions, sur sa propre page ; le dernier événement est rappelé en bas de la page Personnages.
+
+## Interface
+
+Un menu latéral sépare six pages : **Personnages** (la liste, avec les lancements), **Combat** (début de tour, passage de tour, hors combat), **Raccourcis**, **Lancement** (entrée en jeu, relances, notifications), **Affichage** (barre flottante, liste compacte) et **Journal**. Chaque réglage tient sur une ligne : un titre, une phrase d'explication, et l'interrupteur ou le champ à droite.
 
 ## Réglages à faire dans Dofus
 
 1. **Signal de début de tour.** L'application sait que c'est le tour d'un personnage parce que Dofus fait **clignoter sa fenêtre dans la barre des tâches** quand elle n'est pas au premier plan. Active la notification externe de début de tour dans les options de Dofus (rubrique Notifications). Pour vérifier : en combat, le journal doit afficher « Début de tour : <pseudo> » ou l'action effectuée.
-2. **Touche « Passer son tour ».** Vérifie le raccourci dans *Options › Raccourcis* et reporte-le dans le champ « Touche » de l'application (F1 par défaut). Le bouton « Passer le tour » d'une carte envoie la touche immédiatement, pour tester.
+2. **Touche « Passer son tour ».** Vérifie le raccourci dans *Options › Raccourcis* et reporte-le dans le champ « Touche « Passer son tour » » de la page Combat (F1 par défaut). Le bouton ▷| d'un personnage envoie la touche immédiatement, pour tester.
 
 ## Limites connues
 

@@ -4,7 +4,7 @@
         Title="Image du personnage"
         Width="1180" Height="760" MinWidth="760" MinHeight="480"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Bg}"
+        Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" UseLayoutRounding="True">
     <Grid Margin="20">
         <Grid.ColumnDefinitions>

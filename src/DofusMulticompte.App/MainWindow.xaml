@@ -8,8 +8,8 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance vm:MainViewModel}"
         Title="Multicompte Dofus"
-        Width="1240" Height="800" MinWidth="900" MinHeight="600"
-        Background="{StaticResource Bg}"
+        Width="1240" Height="800" MinWidth="980" MinHeight="600"
+        Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
         FontFamily="Segoe UI Variable Text, Segoe UI"
         FontSize="13"
         UseLayoutRounding="True">
@@ -17,25 +17,139 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
+        <!-- Vignette d'un personnage : image choisie, sinon tête de classe, sinon initiale sur la couleur de classe -->
+        <DataTemplate x:Key="AvatarContent" DataType="{x:Type vm:CharacterViewModel}">
+            <Grid>
+                <TextBlock Text="{Binding ClassInitial}" FontWeight="Bold" Foreground="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasAvatarImage}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <Border CornerRadius="7" RenderOptions.BitmapScalingMode="HighQuality">
+                    <Border.Background>
+                        <ImageBrush ImageSource="{Binding AvatarImage}" Stretch="UniformToFill"/>
+                    </Border.Background>
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Pastilles d'état : meneur, tour en cours, hors ligne / lancement -->
+        <DataTemplate x:Key="StatusChips" DataType="{x:Type vm:CharacterViewModel}">
+            <StackPanel Orientation="Horizontal">
+                <Border Background="{StaticResource Accent}" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
+                        Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Meneur" Foreground="{StaticResource OnAccent}" FontWeight="SemiBold" FontSize="11"/>
+                </Border>
+                <Border Background="{StaticResource Turn}" CornerRadius="4" Padding="7,2" Margin="0,0,6,0"
+                        Visibility="{Binding IsTurn, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Son tour" Foreground="#0B2117" FontWeight="SemiBold" FontSize="11"/>
+                </Border>
+                <Border x:Name="offline" Background="{StaticResource Surface4}" CornerRadius="4" Padding="7,2" Margin="0,0,6,0" Visibility="Collapsed">
+                    <TextBlock x:Name="offlineText" Text="Hors ligne" FontWeight="SemiBold" FontSize="11"/>
+                </Border>
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsOnline}" Value="False">
+                    <Setter TargetName="offline" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLaunching}" Value="True">
+                    <Setter TargetName="offlineText" Property="Text" Value="Lancement…"/>
+                    <Setter TargetName="offline" Property="Background" Value="{StaticResource AccentSoft}"/>
+                    <Setter TargetName="offlineText" Property="Foreground" Value="{StaticResource Accent}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Ce qui se passera au tour du personnage : point de couleur + phrase -->
+        <DataTemplate x:Key="AutomationStatus" DataType="{x:Type vm:CharacterViewModel}">
+            <StackPanel Orientation="Horizontal">
+                <Ellipse x:Name="dot" Width="7" Height="7" Fill="{StaticResource Subtle}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding AutomationSummary}" Margin="8,0,0,0" Style="{StaticResource Hint}"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding AutomationSummary}" Value="Mis au premier plan à son tour">
+                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Turn}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding WillAutoPass}" Value="True">
+                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Auto}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Actions d'un personnage, en icônes : meneur, passer le tour ou lancer, retirer, ordre -->
+        <DataTemplate x:Key="CharacterActions" DataType="{x:Type vm:CharacterViewModel}">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="leaderBtn" Style="{StaticResource IconButton}" Content="&#xE734;" ToolTip="Définir comme meneur"
+                        Command="{Binding DataContext.SetLeaderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"/>
+                <Button x:Name="passBtn" Style="{StaticResource IconButton}" Content="&#xE893;"
+                        ToolTip="Passer son tour maintenant (envoie la touche « Passer son tour », pour tester le réglage)"
+                        Command="{Binding DataContext.TestPassCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"/>
+                <Button x:Name="launchBtn" Style="{StaticResource IconButton}" Content="&#xE768;" Visibility="Collapsed" Foreground="{StaticResource Accent}"
+                        ToolTip="Lancer une instance pour ce personnage (via Ankama Launcher, sur le compte actif du launcher)"
+                        Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"/>
+                <Button x:Name="forgetBtn" Style="{StaticResource IconButton}" Content="&#xE74D;" Visibility="Collapsed"
+                        ToolTip="Retirer de la liste (ses réglages et ses images sont supprimés)"
+                        Command="{Binding DataContext.ForgetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"/>
+                <Rectangle Width="1" Height="16" Fill="{StaticResource Line}" Margin="4,0" VerticalAlignment="Center"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE70E;" ToolTip="Monter dans l'ordre de passage"
+                        Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"/>
+                <Button Style="{StaticResource IconButton}" Content="&#xE70D;" ToolTip="Descendre dans l'ordre de passage"
+                        Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"/>
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsLeader}" Value="True">
+                    <Setter TargetName="leaderBtn" Property="Content" Value="&#xE735;"/>
+                    <Setter TargetName="leaderBtn" Property="Foreground" Value="{StaticResource Accent}"/>
+                    <Setter TargetName="leaderBtn" Property="ToolTip" Value="Meneur : cliquer pour retirer ce rôle"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsOnline}" Value="False">
+                    <Setter TargetName="passBtn" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="launchBtn" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="forgetBtn" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Mode cartes -->
         <DataTemplate x:Key="CharacterCard" DataType="{x:Type vm:CharacterViewModel}">
-            <Border x:Name="card" Width="300" Margin="0,0,16,16" CornerRadius="8"
+            <Border x:Name="card" Width="284" Margin="0,0,16,16" CornerRadius="10"
                     Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1">
-                <StackPanel>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="152"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
                     <!-- Aperçu en direct de la fenêtre : cliquer pour l'afficher -->
-                    <Grid x:Name="preview" Height="169" Cursor="Hand" ToolTip="Afficher cette fenêtre">
+                    <Grid x:Name="preview" Cursor="Hand" ToolTip="Afficher cette fenêtre">
                         <Grid.InputBindings>
                             <MouseBinding Gesture="LeftClick"
                                           Command="{Binding DataContext.FocusCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                           CommandParameter="{Binding}"/>
                         </Grid.InputBindings>
-                        <Border CornerRadius="7,7,0,0" Background="{StaticResource Surface2}"/>
+                        <Border CornerRadius="9,9,0,0" Background="{StaticResource Surface2}"/>
                         <Image x:Name="thumb" Source="{Binding Thumbnail}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
-                            <!-- Arrondit seulement les coins du haut : le rectangle déborde sous l'image. -->
+                            <!-- Arrondit les coins du haut : le bas du rectangle déborde sous l'image. -->
                             <Image.Clip>
-                                <RectangleGeometry Rect="0,0,298,190" RadiusX="7" RadiusY="7"/>
+                                <RectangleGeometry Rect="0,0,282,175" RadiusX="9" RadiusY="9"/>
                             </Image.Clip>
                         </Image>
-                        <TextBlock x:Name="noPreview" Text="Pas encore d'aperçu (fenêtre réduite ?)" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock x:Name="noPreview" Text="Pas d'aperçu (fenêtre réduite ?)" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -47,170 +161,80 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="8">
-                            <Border Background="{StaticResource Accent}" CornerRadius="3" Padding="7,2" Margin="0,0,6,0"
-                                    Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Meneur" Foreground="#1A1408" FontWeight="SemiBold" FontSize="12"/>
-                            </Border>
-                            <Border Background="{StaticResource Turn}" CornerRadius="3" Padding="7,2"
-                                    Visibility="{Binding IsTurn, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Son tour" Foreground="#0B2117" FontWeight="SemiBold" FontSize="12"/>
-                            </Border>
-                            <Border x:Name="offlineBadge" Background="{StaticResource Surface3}" CornerRadius="3" Padding="7,2" Visibility="Collapsed">
-                                <TextBlock x:Name="offlineText" Text="Hors ligne" FontWeight="SemiBold" FontSize="12"/>
-                            </Border>
-                        </StackPanel>
-
-                        <Button x:Name="forgetBtn" Content="Retirer" Padding="8,2" Margin="8" Visibility="Collapsed"
-                                HorizontalAlignment="Right" VerticalAlignment="Top"
-                                ToolTip="Retirer ce personnage de la liste (ses réglages et son image sont supprimés)."
-                                Command="{Binding DataContext.ForgetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
+                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource StatusChips}"
+                                          HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0"/>
+                        <Border Height="1" VerticalAlignment="Bottom" Background="{StaticResource Line}"/>
                     </Grid>
 
-                    <StackPanel Margin="14,12,14,14">
-                        <!-- Identité -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Border Width="36" Height="36" CornerRadius="6" Background="{Binding ClassBrush}" VerticalAlignment="Center"
-                                    Cursor="Hand" ToolTip="Choisir l'image du personnage (découpée dans sa fenêtre)">
-                                    <Border.InputBindings>
-                                        <MouseBinding Gesture="LeftClick"
-                                                      Command="{Binding DataContext.ChooseAvatarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      CommandParameter="{Binding}"/>
-                                    </Border.InputBindings>
-                                <Grid>
-                                    <TextBlock Text="{Binding ClassInitial}" FontSize="17" FontWeight="Bold" Foreground="White"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding HasAvatarImage}" Value="True">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <!-- Image du personnage (choisie, sinon tête de base de la classe) -->
-                                    <Border CornerRadius="6" RenderOptions.BitmapScalingMode="HighQuality">
-                                        <Border.Background>
-                                            <ImageBrush ImageSource="{Binding AvatarImage}" Stretch="UniformToFill"/>
-                                        </Border.Background>
-                                    </Border>
-                                </Grid>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding ClassName}" Style="{StaticResource Hint}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
-                                        Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Niv." Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <TextBox Width="46" Text="{Binding Level, UpdateSourceTrigger=LostFocus}" MaxLength="3"
-                                         HorizontalContentAlignment="Center"
-                                         ToolTip="Le client Dofus n'expose pas le niveau : saisis-le ici, il est mémorisé pour ce personnage."/>
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Ce qui se passera à son tour -->
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <Ellipse x:Name="dot" Width="8" Height="8" Fill="{StaticResource Muted}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding AutomationSummary}" Margin="8,0,0,0" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+                    <!-- Identité -->
+                    <Grid Grid.Row="1" Margin="14,12,14,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="avatar" Width="40" Height="40" CornerRadius="8" Background="{Binding ClassBrush}"
+                                Cursor="Hand" ToolTip="Changer l'image (encadrer le personnage dans sa fenêtre)">
+                            <Border.InputBindings>
+                                <MouseBinding Gesture="LeftClick"
+                                              Command="{Binding DataContext.ChooseAvatarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              CommandParameter="{Binding}"/>
+                            </Border.InputBindings>
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AvatarContent}" TextElement.FontSize="17"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding DisplayName}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding ClassName}" Style="{StaticResource Hint}" Margin="0,1,0,0"/>
                         </StackPanel>
+                    </Grid>
 
-                        <CheckBox Content="Inclure dans les automatisations" Margin="0,10,0,0"
-                                  IsChecked="{Binding IncludedInAutomation}" IsEnabled="{Binding IsConnected}"/>
-
-                        <!-- Actions -->
-                        <Grid Margin="0,14,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="6"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="6"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Button x:Name="leaderBtn" Content="Définir meneur"
-                                    Command="{Binding DataContext.SetLeaderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}"/>
-                            <Button x:Name="passBtn" Grid.Column="2" Content="Passer le tour"
-                                    ToolTip="Envoie tout de suite la touche « Passer son tour » à cette fenêtre (pour tester la configuration)."
-                                    Command="{Binding DataContext.TestPassCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}"/>
-                            <Button x:Name="launchBtn" Grid.Column="2" Content="Lancer" Visibility="Collapsed"
-                                    Background="{StaticResource AccentSoft}"
-                                    ToolTip="Demande une instance à Ankama Launcher (compte actif du launcher). Connecte ensuite ce personnage dans la fenêtre qui s'ouvre."
-                                    Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}"/>
-                            <Button Grid.Column="4" Content="↑" Padding="9,5" ToolTip="Monter dans l'ordre de passage"
-                                    Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}"/>
-                            <Button Grid.Column="6" Content="↓" Padding="9,5" ToolTip="Descendre dans l'ordre de passage"
-                                    Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}"/>
-                        </Grid>
+                    <!-- État et actions -->
+                    <StackPanel Grid.Row="2">
+                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AutomationStatus}" Margin="14,12,14,12"/>
+                        <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="10,6,6,6">
+                            <DockPanel>
+                                <ContentPresenter DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource CharacterActions}"/>
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding IncludedInAutomation}" IsEnabled="{Binding IsConnected}"
+                                          ToolTip="Inclure ce personnage dans les automatisations (passage de tour, mise au premier plan, clic sur toutes les fenêtres)">
+                                    <TextBlock Text="Auto" Style="{StaticResource Hint}"/>
+                                </CheckBox>
+                            </DockPanel>
+                        </Border>
                     </StackPanel>
-                </StackPanel>
+                </Grid>
             </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsActive}" Value="True">
-                    <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Muted}"/>
+                    <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Subtle}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsLeader}" Value="True">
-                    <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                    <Setter TargetName="leaderBtn" Property="Content" Value="Retirer meneur"/>
-                    <Setter TargetName="leaderBtn" Property="Background" Value="{StaticResource AccentSoft}"/>
+                    <Setter TargetName="card" Property="BorderBrush" Value="#6B5329"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsTurn}" Value="True">
                     <Setter TargetName="card" Property="BorderBrush" Value="{StaticResource Turn}"/>
-                    <Setter TargetName="card" Property="BorderThickness" Value="2"/>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding AutomationSummary}" Value="Mis au premier plan à son tour">
-                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Turn}"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding WillAutoPass}" Value="True">
-                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Auto}"/>
-                </DataTrigger>
-                <!-- Personnage connu sans instance ouverte -->
                 <DataTrigger Binding="{Binding IsOnline}" Value="False">
-                    <Setter TargetName="thumb" Property="Opacity" Value="0.35"/>
+                    <Setter TargetName="thumb" Property="Opacity" Value="0.3"/>
+                    <Setter TargetName="avatar" Property="Opacity" Value="0.6"/>
                     <Setter TargetName="preview" Property="Cursor" Value="Arrow"/>
                     <Setter TargetName="preview" Property="ToolTip" Value="Instance fermée"/>
                     <Setter TargetName="noPreview" Property="Text" Value="Aucune image enregistrée"/>
-                    <Setter TargetName="offlineBadge" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="forgetBtn" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="passBtn" Property="Visibility" Value="Collapsed"/>
-                    <Setter TargetName="launchBtn" Property="Visibility" Value="Visible"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsLaunching}" Value="True">
-                    <Setter TargetName="offlineText" Property="Text" Value="Lancement…"/>
-                    <Setter TargetName="offlineBadge" Property="Background" Value="{StaticResource AccentSoft}"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- Mode liste : une ligne compacte par personnage -->
+        <!-- Mode liste : une ligne par personnage, colonnes alignées sur l'en-tête -->
         <DataTemplate x:Key="CharacterRow" DataType="{x:Type vm:CharacterViewModel}">
-            <Border x:Name="row" Margin="0,0,16,6" CornerRadius="6" Padding="10,7"
+            <Border x:Name="row" Margin="0,0,0,6" CornerRadius="8" Padding="12,8,8,8"
                     Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="190"/>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="230"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="72"/>
+                        <ColumnDefinition Width="162"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Identité : cliquer pour afficher la fenêtre -->
+                    <!-- Personnage : cliquer pour afficher sa fenêtre -->
                     <Grid x:Name="identity" Background="Transparent" Cursor="Hand" ToolTip="Afficher cette fenêtre">
                         <Grid.InputBindings>
                             <MouseBinding Gesture="LeftClick"
@@ -221,432 +245,523 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border x:Name="tile" Width="30" Height="30" CornerRadius="5" Background="{Binding ClassBrush}" VerticalAlignment="Center"
-                                ToolTip="Choisir l'image du personnage (découpée dans sa fenêtre)">
-                                <Border.InputBindings>
-                                    <MouseBinding Gesture="LeftClick"
-                                                  Command="{Binding DataContext.ChooseAvatarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  CommandParameter="{Binding}"/>
-                                </Border.InputBindings>
-                            <Grid>
-                                <TextBlock Text="{Binding ClassInitial}" FontSize="14" FontWeight="Bold" Foreground="White"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasAvatarImage}" Value="True">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <!-- Image du personnage (choisie, sinon tête de base de la classe) -->
-                                <Border CornerRadius="5" RenderOptions.BitmapScalingMode="HighQuality">
-                                    <Border.Background>
-                                        <ImageBrush ImageSource="{Binding AvatarImage}" Stretch="UniformToFill"/>
-                                    </Border.Background>
-                                </Border>
-                            </Grid>
+                        <Border x:Name="avatar" Width="34" Height="34" CornerRadius="7" Background="{Binding ClassBrush}"
+                                ToolTip="Changer l'image (encadrer le personnage dans sa fenêtre)">
+                            <Border.InputBindings>
+                                <MouseBinding Gesture="LeftClick"
+                                              Command="{Binding DataContext.ChooseAvatarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              CommandParameter="{Binding}"/>
+                            </Border.InputBindings>
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AvatarContent}" TextElement.FontSize="15"/>
                         </Border>
-                        <StackPanel Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                             <TextBlock Text="{Binding ClassName}" Style="{StaticResource Hint}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Grid>
 
-                    <!-- Badges -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Background="{StaticResource Accent}" CornerRadius="3" Padding="6,1" Margin="0,0,6,0"
-                                Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="Meneur" Foreground="#1A1408" FontWeight="SemiBold" FontSize="11"/>
-                        </Border>
-                        <Border Background="{StaticResource Turn}" CornerRadius="3" Padding="6,1" Margin="0,0,6,0"
-                                Visibility="{Binding IsTurn, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="Son tour" Foreground="#0B2117" FontWeight="SemiBold" FontSize="11"/>
-                        </Border>
-                        <Border x:Name="offlineBadge" Background="{StaticResource Surface3}" CornerRadius="3" Padding="6,1" Margin="0,0,6,0" Visibility="Collapsed">
-                            <TextBlock x:Name="offlineText" Text="Hors ligne" FontWeight="SemiBold" FontSize="11"/>
-                        </Border>
+                    <!-- Statut -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource StatusChips}" VerticalAlignment="Center"/>
+                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AutomationStatus}" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- Ce qui se passera à son tour -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,10,0">
-                        <Ellipse x:Name="dot" Width="8" Height="8" Fill="{StaticResource Muted}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding AutomationSummary}" Margin="8,0,0,0" Style="{StaticResource Hint}"
-                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <!-- Niveau et automatisations -->
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal" Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="Niv." Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBox Width="42" Text="{Binding Level, UpdateSourceTrigger=LostFocus}" MaxLength="3" Padding="4,2"
-                                     HorizontalContentAlignment="Center"
-                                     ToolTip="Le client Dofus n'expose pas le niveau : saisis-le ici, il est mémorisé pour ce personnage."/>
-                        </StackPanel>
-                        <CheckBox Content="Auto" Margin="12,0,0,0" VerticalAlignment="Center"
-                                  ToolTip="Inclure dans les automatisations"
-                                  IsChecked="{Binding IncludedInAutomation}" IsEnabled="{Binding IsConnected}"/>
-                    </StackPanel>
+                    <!-- Automatisations -->
+                    <CheckBox Grid.Column="2" Style="{StaticResource Switch}" VerticalAlignment="Center"
+                              IsChecked="{Binding IncludedInAutomation}" IsEnabled="{Binding IsConnected}"
+                              ToolTip="Inclure ce personnage dans les automatisations (passage de tour, mise au premier plan, clic sur toutes les fenêtres)"/>
 
                     <!-- Actions -->
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="leaderBtn" Content="Meneur" Padding="8,4" Margin="0,0,4,0" ToolTip="Définir comme meneur"
-                                Command="{Binding DataContext.SetLeaderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
-                        <Button x:Name="passBtn" Content="Passer" Padding="8,4" Margin="0,0,4,0"
-                                ToolTip="Envoie tout de suite la touche « Passer son tour » à cette fenêtre (pour tester la configuration)."
-                                Command="{Binding DataContext.TestPassCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
-                        <Button x:Name="launchBtn" Content="Lancer" Padding="8,4" Margin="0,0,4,0" Visibility="Collapsed"
-                                Background="{StaticResource AccentSoft}"
-                                ToolTip="Demande une instance à Ankama Launcher (compte actif du launcher). Connecte ensuite ce personnage dans la fenêtre qui s'ouvre."
-                                Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
-                        <Button x:Name="forgetBtn" Content="Retirer" Padding="8,4" Margin="0,0,4,0" Visibility="Collapsed"
-                                ToolTip="Retirer ce personnage de la liste (ses réglages et son image sont supprimés)."
-                                Command="{Binding DataContext.ForgetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
-                        <Button Content="↑" Padding="8,4" Margin="0,0,4,0" ToolTip="Monter dans l'ordre de passage"
-                                Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
-                        <Button Content="↓" Padding="8,4" ToolTip="Descendre dans l'ordre de passage"
-                                Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
-                    </StackPanel>
+                    <ContentPresenter Grid.Column="3" Content="{Binding}" ContentTemplate="{StaticResource CharacterActions}"
+                                      HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsActive}" Value="True">
-                    <Setter TargetName="row" Property="BorderBrush" Value="{StaticResource Muted}"/>
+                    <Setter TargetName="row" Property="BorderBrush" Value="{StaticResource Subtle}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsLeader}" Value="True">
-                    <Setter TargetName="row" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                    <Setter TargetName="leaderBtn" Property="ToolTip" Value="Retirer le rôle de meneur"/>
-                    <Setter TargetName="leaderBtn" Property="Background" Value="{StaticResource AccentSoft}"/>
+                    <Setter TargetName="row" Property="BorderBrush" Value="#6B5329"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsTurn}" Value="True">
                     <Setter TargetName="row" Property="BorderBrush" Value="{StaticResource Turn}"/>
                     <Setter TargetName="row" Property="Background" Value="{StaticResource TurnSoft}"/>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding AutomationSummary}" Value="Mis au premier plan à son tour">
-                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Turn}"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding WillAutoPass}" Value="True">
-                    <Setter TargetName="dot" Property="Fill" Value="{StaticResource Auto}"/>
-                </DataTrigger>
                 <DataTrigger Binding="{Binding IsOnline}" Value="False">
-                    <Setter TargetName="tile" Property="Opacity" Value="0.4"/>
+                    <Setter TargetName="avatar" Property="Opacity" Value="0.5"/>
                     <Setter TargetName="identity" Property="Cursor" Value="Arrow"/>
                     <Setter TargetName="identity" Property="ToolTip" Value="Instance fermée"/>
-                    <Setter TargetName="offlineBadge" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="forgetBtn" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="passBtn" Property="Visibility" Value="Collapsed"/>
-                    <Setter TargetName="launchBtn" Property="Visibility" Value="Visible"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsLaunching}" Value="True">
-                    <Setter TargetName="offlineText" Property="Text" Value="Lancement…"/>
-                    <Setter TargetName="offlineBadge" Property="Background" Value="{StaticResource AccentSoft}"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- Bouton d'un sélecteur Cartes / Liste -->
-        <Style x:Key="SegmentButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Padding" Value="12,5"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+        <!-- Sélecteur Cartes / Liste -->
+        <Style x:Key="SegmentButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <!-- Menu latéral : chaque page est un onglet, avec une icône (Tag) et un titre (Header) -->
+        <Style x:Key="NavItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="b" Background="Transparent" CornerRadius="7" Padding="12,9" Margin="0,0,0,2">
+                            <Grid>
+                                <Border x:Name="bar" Width="3" Height="16" CornerRadius="2" Background="{StaticResource Accent}"
+                                        HorizontalAlignment="Left" Margin="-12,0,0,0" Visibility="Hidden"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="icon" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" FontSize="15" Width="18"/>
+                                    <ContentPresenter ContentSource="Header" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                      TextElement.Foreground="{TemplateBinding Foreground}" TextElement.FontSize="13"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource Surface}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{StaticResource Surface2}"/>
+                                <Setter TargetName="bar" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="icon" Property="Foreground" Value="{StaticResource Accent}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Page de réglages : défile, largeur de lecture limitée -->
+        <Style x:Key="SettingsPage" TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="Padding" Value="40,30,24,32"/>
         </Style>
     </Window.Resources>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="340"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+    <TabControl x:Name="Tabs" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{StaticResource Text}">
+        <TabControl.Template>
+            <ControlTemplate TargetType="TabControl">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="232"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-        <!-- Colonne de réglages -->
-        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="24,22,24,24">
-                    <TextBlock Text="Multicompte Dofus" FontSize="22" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Hint}" Margin="0,4,0,0"/>
-
-                    <TextBlock Text="AU DÉBUT DU TOUR D'UN PERSONNAGE" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
-
-                    <CheckBox IsChecked="{Binding BringTurnWindowToFront}">
-                        <StackPanel>
-                            <TextBlock Text="Mettre sa fenêtre au premier plan"/>
-                            <TextBlock Text="La fenêtre du personnage qui doit jouer passe devant les autres."
-                                       Style="{StaticResource Hint}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </CheckBox>
-
-                    <CheckBox IsChecked="{Binding AutoPassFollowers}" Margin="0,14,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Passer le tour de tous, sauf le meneur"/>
-                            <TextBlock Text="Pour chaque personnage inclus qui n'est pas le meneur." Style="{StaticResource Hint}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </CheckBox>
-
-                    <CheckBox IsChecked="{Binding AutoPassLeader}" Margin="0,14,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Passer aussi le tour du meneur"/>
-                            <TextBlock Text="Au cas où : le meneur passe lui aussi son tour automatiquement."
-                                       Style="{StaticResource Hint}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </CheckBox>
-
-                    <TextBlock Text="HORS COMBAT" Style="{StaticResource SectionTitle}"/>
-                    <CheckBox IsChecked="{Binding BringWindowOnAlert}">
-                        <StackPanel>
-                            <TextBlock Text="Afficher la fenêtre sur une demande d'échange"/>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                       Text="Quand une fenêtre clignote hors combat (demande d'échange, invitation de groupe…), elle passe au premier plan au lieu d'être traitée comme un début de tour. Le combat est reconnu au bouton « FIN DE TOUR ». Active dans Dofus la notification externe des demandes d'échange."/>
-                        </StackPanel>
-                    </CheckBox>
-
-                    <TextBlock Text="PASSAGE DE TOUR" Style="{StaticResource SectionTitle}"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="150"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition/>
-                            <RowDefinition Height="8"/>
-                            <RowDefinition/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="Touche" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox Grid.Column="1" Text="{Binding PassTurnKey, UpdateSourceTrigger=PropertyChanged}"/>
-
-                        <TextBlock Grid.Row="2" Text="Délai (ms)" VerticalAlignment="Center"/>
-                        <Grid Grid.Row="2" Grid.Column="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Text="{Binding PassDelayMinMs, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center" Padding="2,4"/>
-                            <TextBlock Grid.Column="1" Text="à" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="5,0"/>
-                            <TextBox Grid.Column="2" Text="{Binding PassDelayMaxMs, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center" Padding="2,4"/>
-                        </Grid>
-                    </Grid>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                               Text="La touche doit correspondre au raccourci « Passer son tour » réglé dans Dofus (Options › Raccourcis). Le délai est tiré au hasard dans l'intervalle."/>
-
-                    <CheckBox IsChecked="{Binding UseBackgroundInput}" Margin="0,14,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Envoyer la touche en arrière-plan"/>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                       Text="Expérimental : n'active pas la fenêtre, mais le client peut ignorer la touche. Désactivé, la fenêtre est activée un instant puis la main revient à la fenêtre précédente."/>
-                        </StackPanel>
-                    </CheckBox>
-
-                    <TextBlock Text="LANCEMENT" Style="{StaticResource SectionTitle}"/>
-                    <CheckBox IsChecked="{Binding AutoEnterGame}">
-                        <StackPanel>
-                            <TextBlock Text="Entrer en jeu automatiquement"/>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                       Text="Après un lancement depuis l'application, clique sur « Jouer » si le jeu s'arrête au choix du personnage. Sans effet sur les instances ouvertes autrement."/>
-                        </StackPanel>
-                    </CheckBox>
-                    <CheckBox IsChecked="{Binding RelaunchStuckInstances}" Margin="0,14,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Relancer les instances bloquées"/>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                       Text="Si une instance lancée depuis l'application reste 15 s sur le fond de nuages sans liste de personnages, ou sur l'écran noir de démarrage, elle est fermée et relancée, jusqu'à ce que le chargement aboutisse."/>
-                        </StackPanel>
-                    </CheckBox>
-
-                    <Grid Margin="0,14,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <CheckBox IsChecked="{Binding ShowConnectionNotifications}">
-                            <StackPanel>
-                                <TextBlock Text="Notifications de connexion"/>
-                                <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                           Text="En bas à droite de l'écran : personnage en jeu, « x/N connectés », et chaque relance d'une connexion bloquée."/>
+                    <!-- Menu latéral -->
+                    <Border Background="{StaticResource Sidebar}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+                        <DockPanel Margin="14,20,14,16">
+                            <!-- Identité de l'application -->
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,26">
+                                <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource Accent}">
+                                    <TextBlock Text="&#xE716;" Style="{StaticResource Icon}" FontSize="16" Foreground="{StaticResource OnAccent}"
+                                               HorizontalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Multicompte" FontSize="14" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Dofus 3" Style="{StaticResource Hint}" FontSize="11"/>
+                                </StackPanel>
                             </StackPanel>
-                        </CheckBox>
-                        <Button Grid.Column="1" Content="Tester" Padding="10,4" Margin="10,0,0,0" VerticalAlignment="Top"
-                                Command="{Binding TestNotificationCommand}"/>
-                    </Grid>
 
-                    <TextBlock Text="RACCOURCIS GLOBAUX" Style="{StaticResource SectionTitle}"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="150"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition/>
-                            <RowDefinition Height="8"/>
-                            <RowDefinition/>
-                            <RowDefinition Height="8"/>
-                            <RowDefinition/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="Suivant" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox AllowMouse="True" Grid.Column="1" Text="{Binding HotkeyNext, UpdateSourceTrigger=PropertyChanged}"/>
-                        <TextBlock Grid.Row="2" Text="Précédent" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox AllowMouse="True" Grid.Row="2" Grid.Column="1" Text="{Binding HotkeyPrevious, UpdateSourceTrigger=PropertyChanged}"/>
-                        <TextBlock Grid.Row="4" Text="Meneur" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox AllowMouse="True" Grid.Row="4" Grid.Column="1" Text="{Binding HotkeyLeader, UpdateSourceTrigger=PropertyChanged}"/>
-                    </Grid>
-                    <TextBlock Text="{Binding HotkeyStatus}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"/>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
-                               Text="Personnage suivant, précédent, ou retour au meneur. Ils fonctionnent depuis n'importe quelle fenêtre et suivent l'ordre des cartes. Une touche seule, une combinaison, ou un bouton de souris : clique dans le champ puis appuie sur un bouton latéral (Souris4, Souris5) ou sur la molette. Un bouton de souris associé à un raccourci n'agit plus ailleurs (par exemple « Précédent » dans le navigateur)."/>
+                            <!-- État général -->
+                            <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,10">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="7" Height="7" Fill="{StaticResource Turn}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Détection active" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Hint}" FontSize="11" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
 
-                    <TextBlock Text="CLIC SUR TOUTES LES FENÊTRES" Style="{StaticResource SectionTitle}"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="150"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Raccourci" VerticalAlignment="Center"/>
-                        <controls:HotkeyBox AllowMouse="True" Grid.Column="1" Text="{Binding HotkeyReplicateClick, UpdateSourceTrigger=PropertyChanged}"/>
-                    </Grid>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                               Text="Clique à l'endroit pointé par le curseur dans la fenêtre de chaque personnage inclus dans les automatisations, puis dans la fenêtre de départ, qui reste devant. Pratique pour déplacer toute l'équipe ou parler à un PNJ. Le clic molette convient bien. Vide : désactivé."/>
-                    <TextBlock Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"
-                               Text="Une seule action de ta part déclenche une action par personnage : c'est ce type de fonction qu'Ankama tolère le moins. À utiliser en connaissance de cause."/>
-
-                    <TextBlock Text="BARRE DE PERSONNAGES" Style="{StaticResource SectionTitle}"/>
-                    <CheckBox IsChecked="{Binding ShowCharacterBar}">
-                        <StackPanel>
-                            <TextBlock Text="Afficher la barre flottante"/>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
-                                       Text="Une icône par personnage en ligne, toujours visible par-dessus le jeu : un clic affiche sa fenêtre. Déplace-la en la faisant glisser par sa poignée."/>
-                        </StackPanel>
-                    </CheckBox>
-                    <CheckBox IsChecked="{Binding CharacterBarVertical}" Margin="0,14,0,0" IsEnabled="{Binding ShowCharacterBar}">
-                        <TextBlock Text="Barre verticale"/>
-                    </CheckBox>
-                </StackPanel>
-            </ScrollViewer>
-        </Border>
-
-        <!-- Personnages et journal -->
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="170"/>
-            </Grid.RowDefinitions>
-
-            <DockPanel Margin="28,24,28,14">
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <!-- Sélecteur d'affichage -->
-                    <Border CornerRadius="5" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="2" Margin="0,0,12,0"
-                            Background="{StaticResource Surface}">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Cartes" CommandParameter="Cards" Command="{Binding SetViewModeCommand}" ToolTip="Afficher les personnages en cartes, avec l'aperçu de la fenêtre">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SegmentButton}">
-                                        <Setter Property="Background" Value="{StaticResource Surface3}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CharacterListMode}" Value="True">
-                                                <Setter Property="Background" Value="Transparent"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Content="Liste" CommandParameter="List" Command="{Binding SetViewModeCommand}" ToolTip="Afficher les personnages en liste compacte">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SegmentButton}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CharacterListMode}" Value="True">
-                                                <Setter Property="Background" Value="{StaticResource Surface3}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </StackPanel>
+                            <StackPanel IsItemsHost="True"/>
+                        </DockPanel>
                     </Border>
-                    <Button Content="Lancer une instance" Padding="12,7" Margin="0,0,8,0"
-                            ToolTip="Ouvre une nouvelle instance de Dofus via Ankama Launcher, sur le compte actif du launcher."
-                            Command="{Binding LaunchNewCommand}"/>
-                    <Button Content="{Binding LaunchAllLabel}" Padding="12,7" Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource Accent}"
-                            ToolTip="Ouvre une instance pour chaque personnage hors ligne, l'une après l'autre."
-                            Command="{Binding LaunchAllCommand}"/>
-                </StackPanel>
-                <StackPanel>
-                    <TextBlock Text="Personnages" FontSize="18" FontWeight="SemiBold"/>
-                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
-                               Text="Clique sur un aperçu ou un nom pour afficher la fenêtre. L'ordre de la liste est l'ordre de passage des raccourcis."/>
-                </StackPanel>
-            </DockPanel>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="28,0,12,0">
-                <ItemsControl ItemsSource="{Binding Characters}">
-                    <ItemsControl.Style>
-                        <Style TargetType="ItemsControl">
-                            <Setter Property="ItemTemplate" Value="{StaticResource CharacterCard}"/>
-                            <Setter Property="ItemsPanel">
-                                <Setter.Value>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel/>
-                                    </ItemsPanelTemplate>
-                                </Setter.Value>
-                            </Setter>
+                    <!-- Page affichée -->
+                    <!-- Ce nom permet aux outils d'accessibilité (lecteurs d'écran, UI Automation) de voir le contenu de la page. -->
+                    <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Column="1" ContentSource="SelectedContent"/>
+                </Grid>
+            </ControlTemplate>
+        </TabControl.Template>
+
+        <!-- ============================== PERSONNAGES ============================== -->
+        <TabItem Header="Personnages" Tag="&#xE716;" Style="{StaticResource NavItem}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- En-tête -->
+                <DockPanel Margin="40,30,40,20">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border CornerRadius="7" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                Padding="2" Margin="0,0,12,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="&#xE80A;" AutomationProperties.Name="Cartes" CommandParameter="Cards" Command="{Binding SetViewModeCommand}" ToolTip="Cartes, avec l'aperçu des fenêtres">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SegmentButton}">
+                                            <Setter Property="Background" Value="{StaticResource Surface3}"/>
+                                            <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CharacterListMode}" Value="True">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="&#xE8FD;" AutomationProperties.Name="Liste" CommandParameter="List" Command="{Binding SetViewModeCommand}" ToolTip="Liste compacte">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SegmentButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CharacterListMode}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Surface3}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                        <Button Margin="0,0,8,0" Padding="12,7" Command="{Binding LaunchNewCommand}"
+                                ToolTip="Ouvre une nouvelle instance de Dofus via Ankama Launcher, sur le compte actif du launcher.">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="11" Foreground="{StaticResource Text}"/>
+                                <TextBlock Text="Nouvelle instance" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource PrimaryButton}" Padding="14,7" Command="{Binding LaunchAllCommand}"
+                                ToolTip="Ouvre une instance pour chaque personnage hors ligne, l'une après l'autre.">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="11" Foreground="{StaticResource OnAccent}"/>
+                                <TextBlock Text="{Binding LaunchAllLabel}" Margin="8,0,0,0" Foreground="{StaticResource OnAccent}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Personnages" Style="{StaticResource PageTitle}"/>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                                   Text="Clique sur un personnage pour afficher sa fenêtre. L'ordre ci-dessous est l'ordre de passage des raccourcis."/>
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- En-têtes de colonnes (mode liste) -->
+                <Grid Grid.Row="1" Margin="53,0,49,8" Visibility="{Binding CharacterListMode, Converter={StaticResource BoolToVis}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="230"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="72"/>
+                        <ColumnDefinition Width="162"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.Resources>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource SectionTitle}">
+                            <Setter Property="Margin" Value="0"/>
+                        </Style>
+                    </Grid.Resources>
+                    <TextBlock Text="PERSONNAGE"/>
+                    <TextBlock Grid.Column="1" Text="À SON TOUR"/>
+                    <TextBlock Grid.Column="2" Text="AUTO" ToolTip="Inclus dans les automatisations"/>
+                    <TextBlock Grid.Column="3" Text="ACTIONS" HorizontalAlignment="Right" Margin="0,0,6,0"/>
+                </Grid>
+
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="40,0,24,16">
+                    <ItemsControl ItemsSource="{Binding Characters}">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="ItemTemplate" Value="{StaticResource CharacterCard}"/>
+                                <Setter Property="ItemsPanel">
+                                    <Setter.Value>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CharacterListMode}" Value="True">
+                                        <Setter Property="ItemTemplate" Value="{StaticResource CharacterRow}"/>
+                                        <Setter Property="Margin" Value="0,0,16,0"/>
+                                        <Setter Property="ItemsPanel">
+                                            <Setter.Value>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel/>
+                                                </ItemsPanelTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Aucune instance -->
+                <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding CharacterListMode}" Value="True">
-                                    <Setter Property="ItemTemplate" Value="{StaticResource CharacterRow}"/>
-                                    <Setter Property="ItemsPanel">
-                                        <Setter.Value>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel/>
-                                            </ItemsPanelTemplate>
-                                        </Setter.Value>
-                                    </Setter>
+                                <DataTrigger Binding="{Binding HasCharacters}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </ItemsControl.Style>
-                </ItemsControl>
-            </ScrollViewer>
+                    </StackPanel.Style>
+                    <Border Width="56" Height="56" CornerRadius="14" Background="{StaticResource Surface}" HorizontalAlignment="Center">
+                        <TextBlock Text="&#xE716;" Style="{StaticResource Icon}" FontSize="24" HorizontalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Aucune instance de Dofus ouverte" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                    <TextBlock Style="{StaticResource Hint}" TextAlignment="Center" Margin="0,6,0,0"
+                               Text="Lance Dofus depuis Ankama Launcher, ou clique sur « Nouvelle instance ». Chaque fenêtre apparaît ici dès son ouverture."/>
+                </StackPanel>
 
-            <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420">
-                <StackPanel.Style>
-                    <Style TargetType="StackPanel">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding HasCharacters}" Value="False">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Aucune instance de Dofus ouverte" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                <TextBlock Style="{StaticResource Hint}" TextAlignment="Center" Margin="0,6,0,0"
-                           Text="Lance Dofus depuis Ankama Launcher : chaque instance apparaîtra ici dès son ouverture, puis affichera le pseudo et la classe une fois le personnage connecté."/>
-            </StackPanel>
-
-            <!-- Journal -->
-            <Border Grid.Row="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
-                <Grid Margin="28,12,28,12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                <!-- Dernier événement -->
+                <Border Grid.Row="3" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Background="{StaticResource Sidebar}" Padding="40,9,32,9">
                     <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Effacer" Padding="8,2" Command="{Binding ClearLogCommand}"/>
-                        <TextBlock Text="JOURNAL" Style="{StaticResource SectionTitle}" Margin="0" VerticalAlignment="Center"/>
+                        <Button DockPanel.Dock="Right" Content="Voir le journal" Padding="10,4" Click="ShowJournal"
+                                Background="Transparent" Foreground="{StaticResource Muted}"/>
+                        <TextBlock Text="&#xE81C;" Style="{StaticResource Icon}" FontSize="12"/>
+                        <TextBlock Text="{Binding LogEntries[0]}" Style="{StaticResource Hint}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" Margin="10,0,12,0"/>
                     </DockPanel>
-                    <ListBox Grid.Row="1" Margin="0,8,0,0" ItemsSource="{Binding LogEntries}" Background="Transparent" BorderThickness="0"
-                             Foreground="{StaticResource Muted}" FontSize="12" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- ============================== COMBAT ============================== -->
+        <TabItem Header="Combat" Tag="&#xE7FC;" Style="{StaticResource NavItem}">
+            <ScrollViewer Style="{StaticResource SettingsPage}">
+                <StackPanel MaxWidth="780" HorizontalAlignment="Left">
+                    <TextBlock Text="Combat" Style="{StaticResource PageTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" Text="Ce que fait l'application quand c'est au tour d'un de tes personnages."/>
+
+                    <Border Style="{StaticResource Callout}" Margin="0,20,0,0">
+                        <DockPanel>
+                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" Foreground="{StaticResource Auto}" VerticalAlignment="Top" Margin="0,1,12,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Foreground="{StaticResource Text}"
+                                       Text="Le début d'un tour est repéré quand la fenêtre clignote dans la barre des tâches. Active la notification externe « début de tour » dans les options de Dofus (Notifications)."/>
+                        </DockPanel>
+                    </Border>
+
+                    <TextBlock Text="Au début du tour d'un personnage" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="Afficher sa fenêtre"
+                                                 Description="La fenêtre du personnage qui doit jouer passe au premier plan.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding BringTurnWindowToFront}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Passer le tour des suiveurs"
+                                                 Description="Tous les personnages inclus passent leur tour, sauf le meneur.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoPassFollowers}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Passer aussi le tour du meneur"
+                                                 Description="Le meneur passe lui aussi son tour automatiquement.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoPassLeader}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Passage de tour" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="Touche « Passer son tour »"
+                                                 Description="Le même raccourci que dans Dofus (Options › Raccourcis).">
+                                <controls:HotkeyBox Width="170" Text="{Binding PassTurnKey, UpdateSourceTrigger=PropertyChanged}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Délai avant de passer"
+                                                 Description="En millisecondes, tiré au hasard dans l'intervalle.">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Width="72" Text="{Binding PassDelayMinMs, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center"/>
+                                    <TextBlock Text="à" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="10,0"/>
+                                    <TextBox Width="72" Text="{Binding PassDelayMaxMs, UpdateSourceTrigger=LostFocus}" HorizontalContentAlignment="Center"/>
+                                </StackPanel>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Envoyer en arrière-plan (expérimental)"
+                                                 Description="N'active pas la fenêtre, mais le jeu peut ignorer la touche. Désactivé : la fenêtre est activée un instant, puis la main revient.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding UseBackgroundInput}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Hors combat" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <controls:SettingRow BorderThickness="0" Title="Afficher la fenêtre sur une demande d'échange"
+                                             Description="Une fenêtre qui clignote hors combat (échange, invitation…) passe au premier plan au lieu d'être prise pour un tour. Active aussi la notification externe des échanges dans Dofus.">
+                            <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding BringWindowOnAlert}"/>
+                        </controls:SettingRow>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <!-- ============================== RACCOURCIS ============================== -->
+        <TabItem Header="Raccourcis" Tag="&#xE765;" Style="{StaticResource NavItem}">
+            <ScrollViewer Style="{StaticResource SettingsPage}">
+                <StackPanel MaxWidth="780" HorizontalAlignment="Left">
+                    <TextBlock Text="Raccourcis" Style="{StaticResource PageTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" Text="Ils fonctionnent depuis n'importe quelle fenêtre, même quand l'application est en arrière-plan."/>
+
+                    <Border Style="{StaticResource Callout}" Margin="0,20,0,0">
+                        <DockPanel>
+                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" Foreground="{StaticResource Auto}" VerticalAlignment="Top" Margin="0,1,12,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Foreground="{StaticResource Text}"
+                                       Text="Clique dans un champ, puis appuie sur une touche, une combinaison ou un bouton de souris (latéral ou molette). Retour arrière pour effacer."/>
+                        </DockPanel>
+                    </Border>
+
+                    <TextBlock Text="Changer de personnage" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="Personnage suivant" Description="Dans l'ordre de la page Personnages.">
+                                <controls:HotkeyBox AllowMouse="True" Width="170" Text="{Binding HotkeyNext, UpdateSourceTrigger=PropertyChanged}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Personnage précédent">
+                                <controls:HotkeyBox AllowMouse="True" Width="170" Text="{Binding HotkeyPrevious, UpdateSourceTrigger=PropertyChanged}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Retour au meneur">
+                                <controls:HotkeyBox AllowMouse="True" Width="170" Text="{Binding HotkeyLeader, UpdateSourceTrigger=PropertyChanged}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding HotkeyStatus}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="2,8,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <TextBlock Text="Clic sur toutes les fenêtres" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <controls:SettingRow BorderThickness="0" Title="Raccourci"
+                                             Description="Clique au même endroit dans chaque personnage inclus, puis dans la fenêtre de départ. Pour déplacer l'équipe ou parler à un PNJ. Vide : désactivé.">
+                            <controls:HotkeyBox AllowMouse="True" Width="170" Text="{Binding HotkeyReplicateClick, UpdateSourceTrigger=PropertyChanged}"/>
+                        </controls:SettingRow>
+                    </Border>
+                    <Border Style="{StaticResource WarnCallout}" Margin="0,10,0,0">
+                        <DockPanel>
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{StaticResource Warn}" VerticalAlignment="Top" Margin="0,1,12,0"/>
+                            <TextBlock Style="{StaticResource Hint}" Foreground="{StaticResource Text}"
+                                       Text="Une seule action de ta part déclenche une action par personnage : c'est ce type de fonction qu'Ankama tolère le moins."/>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <!-- ============================== LANCEMENT ============================== -->
+        <TabItem Header="Lancement" Tag="&#xE768;" Style="{StaticResource NavItem}">
+            <ScrollViewer Style="{StaticResource SettingsPage}">
+                <StackPanel MaxWidth="780" HorizontalAlignment="Left">
+                    <TextBlock Text="Lancement" Style="{StaticResource PageTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0"
+                               Text="Les instances sont ouvertes par Ankama Launcher, sur le compte actif du launcher : l'application ne lit ni ne transmet aucun identifiant."/>
+
+                    <TextBlock Text="Après un lancement" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="Entrer en jeu automatiquement"
+                                                 Description="Clique sur « Jouer » à l'accueil et au choix du personnage. Sans effet sur les instances ouvertes autrement.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoEnterGame}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Relancer les instances bloquées"
+                                                 Description="Une instance qui reste 15 s sur le même écran de chargement est fermée puis relancée.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding RelaunchStuckInstances}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Notifications" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <controls:SettingRow BorderThickness="0" Title="Notifications de connexion"
+                                             Description="En bas à droite de l'écran : personnage en jeu, « x/N connectés », relances.">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Tester" Padding="12,5" Margin="0,0,16,0" Command="{Binding TestNotificationCommand}"/>
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowConnectionNotifications}"/>
+                            </StackPanel>
+                        </controls:SettingRow>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <!-- ============================== AFFICHAGE ============================== -->
+        <TabItem Header="Affichage" Tag="&#xE7F4;" Style="{StaticResource NavItem}">
+            <ScrollViewer Style="{StaticResource SettingsPage}">
+                <StackPanel MaxWidth="780" HorizontalAlignment="Left">
+                    <TextBlock Text="Affichage" Style="{StaticResource PageTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" Text="La barre flottante et la présentation des personnages."/>
+
+                    <TextBlock Text="Barre de personnages" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="Afficher la barre flottante"
+                                                 Description="Une icône par personnage en ligne, toujours par-dessus le jeu. Clic : afficher sa fenêtre. Clic droit : changer son image. Glisser la poignée pour la déplacer.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowCharacterBar}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Barre verticale" Description="Plus étroite : les noms s'affichent au survol."
+                                                 IsEnabled="{Binding ShowCharacterBar}">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CharacterBarVertical}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Page Personnages" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <controls:SettingRow BorderThickness="0" Title="Liste compacte"
+                                             Description="Une ligne par personnage au lieu des cartes avec aperçu.">
+                            <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CharacterListMode}"/>
+                        </controls:SettingRow>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <!-- ============================== JOURNAL ============================== -->
+        <TabItem x:Name="JournalTab" Header="Journal" Tag="&#xE81C;" Style="{StaticResource NavItem}">
+            <Grid Margin="40,30,40,32">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,20">
+                    <Button DockPanel.Dock="Right" Content="Effacer" Padding="12,6" VerticalAlignment="Center" Command="{Binding ClearLogCommand}"/>
+                    <StackPanel>
+                        <TextBlock Text="Journal" Style="{StaticResource PageTitle}"/>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" Text="Détections, tours, lancements et actions, du plus récent au plus ancien."/>
+                    </StackPanel>
+                </DockPanel>
+                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6">
+                    <ListBox ItemsSource="{Binding LogEntries}" Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
-                                <Setter Property="Padding" Value="0,1"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
-                                            <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                                            <Border x:Name="b" Padding="12,6" CornerRadius="5" Background="Transparent">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="b" Property="Background" Value="{StaticResource Surface2}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
@@ -654,12 +769,12 @@
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding}" FontSize="12.5" Foreground="{StaticResource Text}" TextWrapping="Wrap"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                </Grid>
-            </Border>
-        </Grid>
-    </Grid>
+                </Border>
+            </Grid>
+        </TabItem>
+    </TabControl>
 </Window>

@@ -8,4 +8,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
     }
+
+    /// <summary>« Voir le journal » en bas de la page Personnages.</summary>
+    private void ShowJournal(object sender, RoutedEventArgs e) => Tabs.SelectedItem = JournalTab;
 }
