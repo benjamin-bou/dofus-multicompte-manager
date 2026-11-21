@@ -18,7 +18,8 @@
         </ItemsPanelTemplate>
 
         <DataTemplate x:Key="BarItem" DataType="{x:Type vm:CharacterViewModel}">
-            <Grid x:Name="item" Width="58" Margin="2" Background="Transparent" Cursor="Hand">
+            <Grid x:Name="item" Width="58" Margin="2" Background="Transparent" Cursor="Hand"
+              Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                 <Grid.ToolTip>
                     <TextBlock>
                         <Run Text="{Binding DisplayName, Mode=OneWay}" FontWeight="SemiBold"/>
@@ -31,13 +32,38 @@
                                   Command="{Binding DataContext.FocusCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                   CommandParameter="{Binding}"/>
                 </Grid.InputBindings>
+                <Grid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Choisir l'image…"
+                                  Command="{Binding PlacementTarget.Tag.ChooseAvatarCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding}"/>
+                    </ContextMenu>
+                </Grid.ContextMenu>
                 <StackPanel>
                     <Grid Width="44" Height="44" HorizontalAlignment="Center">
                         <!-- Anneau : blanc pour la fenêtre active, vert pour le tour en cours -->
                         <Border x:Name="ring" CornerRadius="9" BorderThickness="2" BorderBrush="Transparent"/>
                         <Border x:Name="tile" Margin="4" CornerRadius="6" Background="{Binding ClassBrush}">
-                            <TextBlock Text="{Binding ClassInitial}" FontSize="17" FontWeight="Bold" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Grid>
+                                <TextBlock Text="{Binding ClassInitial}" FontSize="17" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasAvatarImage}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <!-- Image du personnage (choisie, sinon tête de base de la classe) -->
+                                <Border CornerRadius="6" RenderOptions.BitmapScalingMode="HighQuality">
+                                    <Border.Background>
+                                        <ImageBrush ImageSource="{Binding AvatarImage}" Stretch="UniformToFill"/>
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
                         </Border>
                         <!-- Meneur -->
                         <Border Width="12" Height="12" CornerRadius="6" HorizontalAlignment="Right" VerticalAlignment="Top"

@@ -77,9 +77,33 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Border Width="36" Height="36" CornerRadius="6" Background="{Binding ClassBrush}" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding ClassInitial}" FontSize="17" FontWeight="Bold" Foreground="White"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border Width="36" Height="36" CornerRadius="6" Background="{Binding ClassBrush}" VerticalAlignment="Center"
+                                    Cursor="Hand" ToolTip="Choisir l'image du personnage (découpée dans sa fenêtre)">
+                                    <Border.InputBindings>
+                                        <MouseBinding Gesture="LeftClick"
+                                                      Command="{Binding DataContext.ChooseAvatarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding}"/>
+                                    </Border.InputBindings>
+                                <Grid>
+                                    <TextBlock Text="{Binding ClassInitial}" FontSize="17" FontWeight="Bold" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasAvatarImage}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <!-- Image du personnage (choisie, sinon tête de base de la classe) -->
+                                    <Border CornerRadius="6" RenderOptions.BitmapScalingMode="HighQuality">
+                                        <Border.Background>
+                                            <ImageBrush ImageSource="{Binding AvatarImage}" Stretch="UniformToFill"/>
+                                        </Border.Background>
+                                    </Border>
+                                </Grid>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
@@ -197,9 +221,33 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border x:Name="tile" Width="30" Height="30" CornerRadius="5" Background="{Binding ClassBrush}" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding ClassInitial}" FontSize="14" FontWeight="Bold" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="tile" Width="30" Height="30" CornerRadius="5" Background="{Binding ClassBrush}" VerticalAlignment="Center"
+                                ToolTip="Choisir l'image du personnage (découpée dans sa fenêtre)">
+                                <Border.InputBindings>
+                                    <MouseBinding Gesture="LeftClick"
+                                                  Command="{Binding DataContext.ChooseAvatarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  CommandParameter="{Binding}"/>
+                                </Border.InputBindings>
+                            <Grid>
+                                <TextBlock Text="{Binding ClassInitial}" FontSize="14" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasAvatarImage}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <!-- Image du personnage (choisie, sinon tête de base de la classe) -->
+                                <Border CornerRadius="5" RenderOptions.BitmapScalingMode="HighQuality">
+                                    <Border.Background>
+                                        <ImageBrush ImageSource="{Binding AvatarImage}" Stretch="UniformToFill"/>
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
                         </Border>
                         <StackPanel Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>

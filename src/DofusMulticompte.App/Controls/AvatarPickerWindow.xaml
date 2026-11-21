@@ -1,0 +1,72 @@
+<Window x:Class="DofusMulticompte.App.Controls.AvatarPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Image du personnage"
+        Width="1180" Height="760" MinWidth="760" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Bg}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13" UseLayoutRounding="True">
+    <Grid Margin="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="230"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.ColumnSpan="2" Margin="0,0,0,14">
+            <TextBlock x:Name="Heading" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock x:Name="Help" Style="{StaticResource Hint}" Margin="0,4,0,0"
+                       Text="Encadre ton personnage en faisant glisser la souris sur la capture : un carré autour de sa tête et de son chapeau suffit. Astuce : zoome en jeu sur ton personnage, puis clique sur « Recapturer »."/>
+        </StackPanel>
+
+        <!-- Capture de la fenêtre, avec la sélection carrée par-dessus -->
+        <Border Grid.Row="1" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+            <Grid>
+                <Viewbox x:Name="Stage" Stretch="Uniform" Margin="8">
+                    <Grid x:Name="Surface" Cursor="Cross" Background="Transparent">
+                        <Image x:Name="Shot" Stretch="Fill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <Path x:Name="Dim" Fill="#99000000" IsHitTestVisible="False"/>
+                        <Rectangle x:Name="Selection" Stroke="{StaticResource Accent}" Visibility="Collapsed"
+                                   HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
+                    </Grid>
+                </Viewbox>
+                <TextBlock x:Name="NoCapture" Visibility="Collapsed" Style="{StaticResource Hint}" FontSize="14"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="420"
+                           Text="Impossible de capturer la fenêtre (réduite ou fermée). Affiche-la puis clique sur « Recapturer »."/>
+            </Grid>
+        </Border>
+
+        <!-- Aperçu et actions -->
+        <StackPanel Grid.Row="1" Grid.Column="1" Margin="18,0,0,0">
+            <TextBlock Text="APERÇU" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
+            <StackPanel Orientation="Horizontal">
+                <Border Width="96" Height="96" CornerRadius="12" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                    <Border CornerRadius="11" RenderOptions.BitmapScalingMode="HighQuality">
+                        <Border.Background>
+                            <ImageBrush x:Name="PreviewBig" Stretch="UniformToFill"/>
+                        </Border.Background>
+                    </Border>
+                </Border>
+                <Border Width="36" Height="36" CornerRadius="6" Margin="14,0,0,0" VerticalAlignment="Bottom"
+                        Background="{StaticResource Surface2}" RenderOptions.BitmapScalingMode="HighQuality"
+                        ToolTip="Taille dans la barre de personnages">
+                    <Border CornerRadius="6">
+                        <Border.Background>
+                            <ImageBrush x:Name="PreviewSmall" Stretch="UniformToFill"/>
+                        </Border.Background>
+                    </Border>
+                </Border>
+            </StackPanel>
+
+            <Button x:Name="UseButton" Content="Utiliser cette image" Margin="0,22,0,0" Padding="10,8"
+                    Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource Accent}" IsEnabled="False"/>
+            <Button x:Name="RecaptureButton" Content="Recapturer" Margin="0,8,0,0" Padding="10,8"
+                    ToolTip="Reprend une capture de la fenêtre du personnage (après avoir zoomé en jeu, par exemple)."/>
+            <Button x:Name="ResetButton" Content="Revenir à l'image de classe" Margin="0,8,0,0" Padding="10,8"/>
+            <Button x:Name="CancelButton" Content="Annuler" Margin="0,8,0,0" Padding="10,8" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

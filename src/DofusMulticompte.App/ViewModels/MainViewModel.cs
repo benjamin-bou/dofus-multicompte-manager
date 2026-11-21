@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using DofusMulticompte.App.Interop;
 using DofusMulticompte.App.Services;
@@ -26,6 +27,33 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan TurnBadgeDuration = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan LaunchBadgeDuration = TimeSpan.FromSeconds(90);
     private readonly PortraitStore _portraits = new(PortraitStore.DefaultDirectory);
+    /// <summary>Images de personnage choisies par l'utilisateur (découpées dans la fenêtre du jeu).</summary>
+    private readonly PortraitStore _avatars = new(AvatarDirectory);
+    private readonly Dictionary<string, BitmapSource?> _avatarCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public static string AvatarDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DofusMulticompte", "avatars");
+
+    /// <summary>Têtes de base des classes (téléchargées une fois depuis DofusDB).</summary>
+    public ClassImageStore ClassImages { get; } = new(ClassImageStore.DefaultDirectory);
+
+    public BitmapSource? GetCustomAvatar(string characterName)
+    {
+        if (!_avatarCache.TryGetValue(characterName, out var image))
+            _avatarCache[characterName] = image = _avatars.Load(characterName);
+        return image;
+    }
+
+    /// <summary>Enregistre (ou efface avec null) l'image choisie pour un personnage.</summary>
+    public void SetCustomAvatar(string characterName, BitmapSource? image)
+    {
+        if (image is null) _avatars.Delete(characterName);
+        else _avatars.Save(characterName, image);
+        _avatarCache[characterName] = image;
+        foreach (var c in Characters)
+            if (string.Equals(c.CharacterName, characterName, StringComparison.OrdinalIgnoreCase)) c.RefreshAvatar();
+        Log(image is null ? $"Image de {characterName} : retour à l'image de sa classe" : $"Nouvelle image pour {characterName}");
+    }
     private readonly Dictionary<string, DateTime> _launchRequestedAt = new(StringComparer.OrdinalIgnoreCase);
     private bool _launchingAll;
 
@@ -78,6 +106,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _messages.WindowFlashed += OnWindowFlashed;
         _messages.WindowsChanged += _ => { _rescanSoon!.Stop(); _rescanSoon.Start(); };
         _messages.HotkeyPressed += OnHotkey;
+        ClassImages.ImageLoaded += () => { foreach (var c in Characters) c.RefreshAvatar(); };
 
         SetLeaderCommand = new RelayCommand(p => ToggleLeader(p as CharacterViewModel), p => p is CharacterViewModel { IsConnected: true });
         FocusCommand = new RelayCommand(p => { if (p is CharacterViewModel { IsOnline: true } c) WindowController.Focus(c.Handle); });
@@ -95,6 +124,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ClearLogCommand = new RelayCommand(_ => LogEntries.Clear());
         TestNotificationCommand = new RelayCommand(_ => ShowSampleNotification());
         SetViewModeCommand = new RelayCommand(p => CharacterListMode = p as string == "List");
+        ChooseAvatarCommand = new RelayCommand(
+            p => { if (p is CharacterViewModel c) Controls.AvatarPickerWindow.Open(this, c); },
+            p => p is CharacterViewModel { IsConnected: true });
 
         _rescanSoon = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) => { _rescanSoon!.Stop(); Rescan(); }, _dispatcher);
         _rescanSoon.Stop();
@@ -123,6 +155,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand ClearLogCommand { get; }
     public ICommand TestNotificationCommand { get; }
     public ICommand SetViewModeCommand { get; }
+    public ICommand ChooseAvatarCommand { get; }
 
     public bool ShowConnectionNotifications
     {
@@ -726,6 +759,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (Settings.IsLeader(name)) Settings.LeaderName = null;
         _launchRequestedAt.Remove(name);
         _portraits.Delete(name);
+        _avatars.Delete(name);
+        _avatarCache.Remove(name);
         SaveSettings();
         Characters.Remove(vm);
         OnPropertyChanged(nameof(OfflineCount));

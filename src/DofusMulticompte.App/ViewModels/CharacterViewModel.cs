@@ -72,6 +72,7 @@ public sealed class CharacterViewModel : ObservableObject
         OnPropertyChanged(nameof(IncludedInAutomation));
         OnPropertyChanged(nameof(Order));
         RefreshAutomationState();
+        RefreshAvatar();
         return changed;
     }
 
@@ -95,7 +96,26 @@ public sealed class CharacterViewModel : ObservableObject
         }
     }
 
-    private CharacterProfile? Profile => CharacterName is { } n ? _owner.Settings.GetOrCreateProfile(n) : null;
+    /// <summary>
+    /// Image du personnage : celle découpée par l'utilisateur dans sa fenêtre si elle existe,
+    /// sinon la tête de base de sa classe (null le temps du téléchargement, ou classe inconnue).
+    /// </summary>
+    public BitmapSource? AvatarImage =>
+        (CharacterName is { } n ? _owner.GetCustomAvatar(n) : null) ?? _owner.ClassImages.Get(_parsed?.KnownClass);
+
+    public bool HasAvatarImage => AvatarImage is not null;
+
+    /// <summary>Vrai si l'utilisateur a choisi une image pour ce personnage.</summary>
+    public bool HasCustomAvatar => CharacterName is { } n && _owner.GetCustomAvatar(n) is not null;
+
+    public void RefreshAvatar()
+    {
+        OnPropertyChanged(nameof(AvatarImage));
+        OnPropertyChanged(nameof(HasAvatarImage));
+        OnPropertyChanged(nameof(HasCustomAvatar));
+    }
+
+    private CharacterProfile? Profile =>CharacterName is { } n ? _owner.Settings.GetOrCreateProfile(n) : null;
 
     /// <summary>Niveau saisi par l'utilisateur (le client ne l'expose pas), mémorisé par pseudo.</summary>
     public string Level
