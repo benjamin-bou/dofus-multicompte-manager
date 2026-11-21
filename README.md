@@ -15,6 +15,7 @@ Application Windows (WPF, .NET 10) qui détecte les instances de Dofus ouvertes 
   - « Passer le tour de tous, sauf le meneur » ;
   - « Passer aussi le tour du meneur » ;
   - la case « Inclure dans les automatisations » d'une carte exclut ce personnage de tout automatisme.
+- **Hors combat** (option « Afficher la fenêtre sur une demande d'échange », désactivée par défaut) : quand une fenêtre clignote hors combat (demande d'échange, invitation…), elle passe au premier plan au lieu d'être traitée comme un début de tour. Le combat est reconnu au bouton vert « FIN DE TOUR » en bas à droite de la capture ; si la fenêtre ne peut pas être capturée, le clignotement reste traité comme un tour. Il faut activer dans Dofus la notification externe des demandes d'échange.
 - **Lancement des instances** :
   - chaque personnage déjà vu reste dans la liste quand son instance est fermée (carte « Hors ligne », avec sa classe et sa dernière image) ;
   - « Lancer » sur une carte hors ligne, « Tout lancer » pour ouvrir une instance par personnage hors ligne (avec une pause de 4 s entre chaque), « Lancer une instance » pour en ouvrir une de plus ;

@@ -53,6 +53,12 @@ public sealed class AppSettings
     /// <summary>Met au premier plan la fenêtre du personnage dont c'est le tour.</summary>
     public bool BringTurnWindowToFront { get; set; } = true;
 
+    /// <summary>
+    /// Hors combat, une fenêtre qui clignote demande l'attention (demande d'échange, invitation…) :
+    /// on l'affiche au lieu de traiter le clignotement comme un début de tour.
+    /// </summary>
+    public bool BringWindowOnAlert { get; set; }
+
     /// <summary>Touche « Passer son tour » configurée dans Dofus.</summary>
     public string PassTurnKey { get; set; } = "F1";
 

@@ -42,6 +42,14 @@ public static class PlayButtonDetector
         return list;
     }
 
+    /// <summary>Zones de couleur « bouton » d'au moins <paramref name="minAreaRatio"/> de la fenêtre.</summary>
+    public static List<Candidate> FindCandidates(ReadOnlySpan<byte> pixels, int width, int height, int stride, double minAreaRatio)
+    {
+        var list = new List<Candidate>();
+        Scan(pixels, width, height, stride, c => { if (c.AreaRatio >= minAreaRatio) list.Add(c); });
+        return list;
+    }
+
     /// <returns>Le centre du bouton, ou null s'il n'est pas trouvé.</returns>
     public static RelativePoint? Find(ReadOnlySpan<byte> pixels, int width, int height, int stride)
     {

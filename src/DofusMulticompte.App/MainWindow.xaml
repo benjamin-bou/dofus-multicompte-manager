@@ -398,6 +398,15 @@
                         </StackPanel>
                     </CheckBox>
 
+                    <TextBlock Text="HORS COMBAT" Style="{StaticResource SectionTitle}"/>
+                    <CheckBox IsChecked="{Binding BringWindowOnAlert}">
+                        <StackPanel>
+                            <TextBlock Text="Afficher la fenêtre sur une demande d'échange"/>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Text="Quand une fenêtre clignote hors combat (demande d'échange, invitation de groupe…), elle passe au premier plan au lieu d'être traitée comme un début de tour. Le combat est reconnu au bouton « FIN DE TOUR ». Active dans Dofus la notification externe des demandes d'échange."/>
+                        </StackPanel>
+                    </CheckBox>
+
                     <TextBlock Text="PASSAGE DE TOUR" Style="{StaticResource SectionTitle}"/>
                     <Grid>
                         <Grid.ColumnDefinitions>

@@ -195,6 +195,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set => UpdateSetting(() => Settings.AutoPassLeader = value);
     }
 
+    public bool BringWindowOnAlert
+    {
+        get => Settings.BringWindowOnAlert;
+        set => UpdateSetting(() => Settings.BringWindowOnAlert = value);
+    }
+
     public bool BringTurnWindowToFront
     {
         get => Settings.BringTurnWindowToFront;
@@ -642,11 +648,47 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     // --- Tours de jeu -------------------------------------------------------------------
 
-    private void OnWindowFlashed(IntPtr hwnd)
+    private async void OnWindowFlashed(IntPtr hwnd)
     {
         var vm = Characters.FirstOrDefault(c => c.Handle == hwnd);
         if (vm is null) return;
+
+        // Hors combat, le clignotement n'est pas un début de tour : c'est une demande d'échange, une invitation…
+        if (Settings.BringWindowOnAlert && vm is { IsConnected: true, CharacterName: { } name })
+        {
+            if (_alertHandledAt.TryGetValue(hwnd, out var at) && DateTime.UtcNow - at < AlertCooldown) return;
+            if (await IsInCombatAsync(hwnd) == false)
+            {
+                _alertHandledAt[hwnd] = DateTime.UtcNow;
+                Log($"{name} demande ton attention hors combat (échange, invitation…) : fenêtre affichée");
+                _automation.BringToFront(hwnd, name);
+                return;
+            }
+        }
         _automation.OnTurnSignal(hwnd, vm.CharacterName, Settings);
+    }
+
+    private static readonly TimeSpan AlertCooldown = TimeSpan.FromSeconds(5);
+    private readonly Dictionary<IntPtr, DateTime> _alertHandledAt = new();
+
+    /// <summary>
+    /// Vrai si le bouton « FIN DE TOUR » est visible, faux s'il ne l'est sur aucune de trois captures
+    /// rapprochées (le bouton peut apparaître avec un léger retard au début du tour), null si la
+    /// fenêtre n'a pas pu être capturée (réduite, gelée) : dans le doute, on garde le comportement de tour.
+    /// </summary>
+    private static async Task<bool?> IsInCombatAsync(IntPtr hwnd)
+    {
+        var captured = false;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0) await Task.Delay(250);
+            // Peut échouer ponctuellement (aperçu en cours de rafraîchissement) : on réessaie.
+            var img = await WindowCapture.CapturePixelsAsync(hwnd, 480, () => { });
+            if (img is not { } c) continue;
+            captured = true;
+            if (CombatDetector.IsInCombat(c.Pixels, c.Width, c.Height, c.Stride)) return true;
+        }
+        return captured ? false : null;
     }
 
     private void MarkTurn(IntPtr hwnd)
