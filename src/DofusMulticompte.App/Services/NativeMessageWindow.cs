@@ -5,7 +5,7 @@ using DofusMulticompte.Core;
 
 namespace DofusMulticompte.App.Services;
 
-public enum HotkeyAction { NextCharacter = 1, PreviousCharacter = 2, FocusLeader = 3 }
+public enum HotkeyAction { NextCharacter = 1, PreviousCharacter = 2, FocusLeader = 3, ReplicateClick = 4 }
 
 /// <summary>
 /// Fenêtre invisible qui reçoit les notifications du shell Windows (création et fermeture de
@@ -52,6 +52,7 @@ public sealed class NativeMessageWindow : IDisposable
         Register(HotkeyAction.NextCharacter, hotkeys.NextCharacter, failures, mouse);
         Register(HotkeyAction.PreviousCharacter, hotkeys.PreviousCharacter, failures, mouse);
         Register(HotkeyAction.FocusLeader, hotkeys.FocusLeader, failures, mouse);
+        Register(HotkeyAction.ReplicateClick, hotkeys.ReplicateClick, failures, mouse);
         failures.AddRange(_mouseHook.SetBindings(mouse));
         return failures;
     }

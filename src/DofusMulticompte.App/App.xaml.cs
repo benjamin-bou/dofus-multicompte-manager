@@ -25,6 +25,8 @@ public partial class App : Application
         var window = new MainWindow { DataContext = _viewModel };
         MainWindow = window;
         window.Show();
+        // Barre flottante : sans propriétaire, pour rester visible quand la fenêtre principale est réduite.
+        _ = new Controls.CharacterBarWindow(_viewModel);
         _viewModel.Start();
     }
 

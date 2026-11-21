@@ -32,6 +32,8 @@ public sealed class SettingsStore
                 // Le dictionnaire désérialisé est sensible à la casse : on le reconstruit.
                 settings.Characters = new Dictionary<string, CharacterProfile>(settings.Characters ?? [], StringComparer.OrdinalIgnoreCase);
                 settings.Hotkeys ??= new HotkeySettings();
+                settings.Hotkeys.ReplicateClick ??= "";
+                settings.CharacterBar ??= new CharacterBarSettings();
                 if (settings.ProcessNames is null || settings.ProcessNames.Count == 0) settings.ProcessNames = ["Dofus"];
                 return settings;
             }

@@ -28,6 +28,9 @@ Application Windows (WPF, .NET 10) qui détecte les instances de Dofus ouvertes 
   - une alerte brève à chaque relance d'une connexion bloquée, avec le numéro d'essai ; le nombre de relances est rappelé à la connexion ;
   - le bouton « Tester » des réglages affiche un exemple.
 - **Raccourcis globaux** : personnage suivant, précédent, retour au meneur (par défaut `Ctrl+→`, `Ctrl+←`, `Ctrl+↑`). Ils suivent l'ordre des cartes, réglable avec ↑ et ↓. Chaque raccourci accepte une touche seule, une combinaison, ou un bouton de souris : boutons latéraux (`Souris4`, `Souris5`) ou clic molette (`Molette`), avec ou sans Ctrl/Alt/Shift. Un bouton de souris associé à un raccourci est intercepté et n'agit plus dans les autres applications.
+- **Barre de personnages flottante** (désactivable) : une icône par personnage en ligne, dans l'ordre de passage, toujours visible par-dessus le jeu. Un clic affiche sa fenêtre ; anneau blanc pour la fenêtre active, vert pour le tour en cours, pastille dorée pour le meneur. Elle ne prend jamais le focus, se déplace par sa poignée (position mémorisée) et peut être verticale.
+- **Affichage en cartes ou en liste** : le sélecteur « Cartes / Liste » au-dessus des personnages passe à une liste compacte d'une ligne par personnage, avec les mêmes actions.
+- **Clic sur toutes les fenêtres** (désactivé tant qu'aucun raccourci n'est choisi) : le raccourci clique à l'endroit pointé dans la fenêtre de chaque personnage inclus dans les automatisations, à la même position relative, puis dans la fenêtre de départ qui reste devant. Une seule action déclenche alors une action par personnage : c'est le type de fonction qu'Ankama tolère le moins.
 - **Journal** des détections, des tours et des actions.
 
 ## Réglages à faire dans Dofus

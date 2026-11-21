@@ -106,6 +106,19 @@ public static class WindowController
         return true;
     }
 
+    /// <summary>Position écran → position relative (0 à 1) dans la zone client, ou null si elle est en dehors.</summary>
+    internal static RelativePoint? ToRelativeClient(IntPtr hwnd, POINT screen)
+    {
+        if (!GetClientRect(hwnd, out var rect)) return null;
+        var origin = new POINT();
+        if (!ClientToScreen(hwnd, ref origin)) return null;
+        double w = rect.Right - rect.Left, h = rect.Bottom - rect.Top;
+        if (w <= 0 || h <= 0) return null;
+        var x = (screen.X - origin.X) / w;
+        var y = (screen.Y - origin.Y) / h;
+        return x is >= 0 and <= 1 && y is >= 0 and <= 1 ? new RelativePoint(x, y) : null;
+    }
+
     private static void SendMouse(uint flags)
     {
         var input = new INPUT { type = INPUT_MOUSE, U = new INPUTUNION { mi = new MOUSEINPUT { dwFlags = flags } } };

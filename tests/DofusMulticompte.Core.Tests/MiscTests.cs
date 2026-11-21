@@ -157,6 +157,57 @@ public class SettingsStoreTests
     }
 
     [Fact]
+    public void Load_AncienFichier_ValeursParDefautPourLesNouveauxReglages()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dmc-tests-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, "settings.json");
+            // Réglages d'une version précédente : ni barre flottante, ni mode liste, ni réplication du clic.
+            File.WriteAllText(path, """{ "LeaderName": "Tikoko", "Hotkeys": { "NextCharacter": "Souris5", "CharacterBar": null } }""");
+            var loaded = new SettingsStore(path).Load();
+            Assert.Equal("Souris5", loaded.Hotkeys.NextCharacter);
+            Assert.Equal("", loaded.Hotkeys.ReplicateClick);
+            Assert.NotNull(loaded.CharacterBar);
+            Assert.True(loaded.CharacterBar.Visible);
+            Assert.Null(loaded.CharacterBar.Left);
+            Assert.False(loaded.CharacterListMode);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveLoad_ConserveBarreEtModeListe()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dmc-tests-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new SettingsStore(Path.Combine(dir, "settings.json"));
+            var s = new AppSettings { CharacterListMode = true };
+            s.CharacterBar.Vertical = true;
+            s.CharacterBar.Left = 120.5;
+            s.CharacterBar.Top = 8;
+            s.Hotkeys.ReplicateClick = "Molette";
+            store.Save(s);
+
+            var loaded = store.Load();
+            Assert.True(loaded.CharacterListMode);
+            Assert.True(loaded.CharacterBar.Vertical);
+            Assert.Equal(120.5, loaded.CharacterBar.Left);
+            Assert.Equal(8, loaded.CharacterBar.Top);
+            Assert.Equal("Molette", loaded.Hotkeys.ReplicateClick);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void GetOrCreateProfile_AjouteALaFinDeLOrdre()
     {
         var s = new AppSettings();

@@ -94,6 +94,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ForgetCommand = new RelayCommand(p => Forget(p as CharacterViewModel), p => p is CharacterViewModel { IsOnline: false });
         ClearLogCommand = new RelayCommand(_ => LogEntries.Clear());
         TestNotificationCommand = new RelayCommand(_ => ShowSampleNotification());
+        SetViewModeCommand = new RelayCommand(p => CharacterListMode = p as string == "List");
 
         _rescanSoon = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) => { _rescanSoon!.Stop(); Rescan(); }, _dispatcher);
         _rescanSoon.Stop();
@@ -121,6 +122,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand ForgetCommand { get; }
     public ICommand ClearLogCommand { get; }
     public ICommand TestNotificationCommand { get; }
+    public ICommand SetViewModeCommand { get; }
 
     public bool ShowConnectionNotifications
     {
@@ -218,6 +220,39 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         get => Settings.Hotkeys.FocusLeader;
         set => UpdateSetting(() => Settings.Hotkeys.FocusLeader = value, RegisterHotkeys);
+    }
+
+    public string HotkeyReplicateClick
+    {
+        get => Settings.Hotkeys.ReplicateClick;
+        set => UpdateSetting(() => Settings.Hotkeys.ReplicateClick = value, RegisterHotkeys);
+    }
+
+    /// <summary>Personnages affichés en liste compacte plutôt qu'en cartes.</summary>
+    public bool CharacterListMode
+    {
+        get => Settings.CharacterListMode;
+        set => UpdateSetting(() => Settings.CharacterListMode = value);
+    }
+
+    public bool ShowCharacterBar
+    {
+        get => Settings.CharacterBar.Visible;
+        set => UpdateSetting(() => Settings.CharacterBar.Visible = value);
+    }
+
+    public bool CharacterBarVertical
+    {
+        get => Settings.CharacterBar.Vertical;
+        set => UpdateSetting(() => Settings.CharacterBar.Vertical = value);
+    }
+
+    /// <summary>Mémorise la position de la barre flottante après un déplacement.</summary>
+    public void SaveCharacterBarPosition(double left, double top)
+    {
+        Settings.CharacterBar.Left = left;
+        Settings.CharacterBar.Top = top;
+        SaveSettings();
     }
 
     public string HotkeyStatus
@@ -706,9 +741,43 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             HotkeyAction.NextCharacter => CharacterCycler.Next(ordered, NativeMethods.GetForegroundWindow(), +1),
             HotkeyAction.PreviousCharacter => CharacterCycler.Next(ordered, NativeMethods.GetForegroundWindow(), -1),
             HotkeyAction.FocusLeader => Characters.FirstOrDefault(c => c.IsLeader && c.IsOnline)?.Handle,
+            HotkeyAction.ReplicateClick => ReplicateClick(),
             _ => null,
         };
         if (target is { } hwnd) WindowController.Focus(hwnd);
+    }
+
+    /// <summary>
+    /// Clique à la position du curseur dans chaque fenêtre de personnage inclus dans les automatisations,
+    /// à la même position relative de la zone client. La fenêtre de départ est cliquée en dernier et reste
+    /// au premier plan. Renvoie toujours null : le focus est géré ici.
+    /// </summary>
+    private IntPtr? ReplicateClick()
+    {
+        var source = NativeMethods.GetForegroundWindow();
+        var origin = Characters.FirstOrDefault(c => c.IsOnline && c.Handle == source);
+        if (origin is null)
+        {
+            Log("Clic sur toutes les fenêtres : le curseur doit être sur une fenêtre Dofus au premier plan.");
+            return null;
+        }
+        if (!NativeMethods.GetCursorPos(out var cursor) || WindowController.ToRelativeClient(source, cursor) is not { } point)
+        {
+            Log("Clic sur toutes les fenêtres : le curseur est hors de la zone de jeu.");
+            return null;
+        }
+
+        var targets = Characters
+            .Where(c => c.IsOnline && c.IsConnected && c.IncludedInAutomation && c.Handle != source)
+            .Select(c => c.Handle)
+            .Append(source)
+            .ToList();
+        _automation.Enqueue("Clic sur toutes les fenêtres", () =>
+        {
+            var ok = targets.Count(h => WindowController.ClickClient(h, point));
+            Log($"Clic répliqué sur {ok}/{targets.Count} fenêtre{(targets.Count > 1 ? "s" : "")}");
+        });
+        return null;
     }
 
     private void RegisterHotkeys()

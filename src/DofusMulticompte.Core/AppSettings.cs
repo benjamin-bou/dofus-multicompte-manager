@@ -25,6 +25,18 @@ public sealed class HotkeySettings
     public string NextCharacter { get; set; } = "Ctrl+Right";
     public string PreviousCharacter { get; set; } = "Ctrl+Left";
     public string FocusLeader { get; set; } = "Ctrl+Up";
+    /// <summary>Clique à la position du curseur dans toutes les fenêtres. Vide par défaut : fonction désactivée.</summary>
+    public string ReplicateClick { get; set; } = "";
+}
+
+/// <summary>Barre flottante d'icônes de personnages, toujours visible par-dessus le jeu.</summary>
+public sealed class CharacterBarSettings
+{
+    public bool Visible { get; set; } = true;
+    public bool Vertical { get; set; }
+    /// <summary>Position de la barre à l'écran (null : coin en haut au centre de l'écran principal).</summary>
+    public double? Left { get; set; }
+    public double? Top { get; set; }
 }
 
 public sealed class AppSettings
@@ -56,6 +68,11 @@ public sealed class AppSettings
     public List<string> ProcessNames { get; set; } = ["Dofus"];
 
     public HotkeySettings Hotkeys { get; set; } = new();
+
+    public CharacterBarSettings CharacterBar { get; set; } = new();
+
+    /// <summary>Affiche les personnages en liste compacte plutôt qu'en cartes.</summary>
+    public bool CharacterListMode { get; set; }
 
     /// <summary>Identifiants du jeu dans Ankama Launcher, utilisés pour le lien de lancement.</summary>
     public string LauncherGameUid { get; set; } = "dofus";
