@@ -89,12 +89,18 @@
                 <DataTrigger Binding="{Binding IsConnected}" Value="False">
                     <Setter TargetName="tile" Property="Opacity" Value="0.45"/>
                 </DataTrigger>
+                <!-- Barre verticale : colonne étroite, sans les noms (ils restent dans l'info-bulle) -->
+                <DataTrigger Binding="{Binding DataContext.CharacterBarVertical, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter TargetName="item" Property="Width" Value="44"/>
+                    <Setter TargetName="item" Property="Margin" Value="0,1"/>
+                    <Setter TargetName="name" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
     </Window.Resources>
 
     <!-- Marge : laisse la place à l'ombre portée -->
-    <Border Margin="8" CornerRadius="10" Background="#F0181C22" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="4">
+    <Border x:Name="Panel" Margin="8" CornerRadius="10" Background="#F0181C22" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="4">
         <Border.Effect>
             <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.5" Color="Black"/>
         </Border.Effect>

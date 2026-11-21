@@ -63,6 +63,9 @@ public partial class CharacterBarWindow : Window
         Items.ItemsPanel = (System.Windows.Controls.ItemsPanelTemplate)Resources[vertical ? "VerticalPanel" : "HorizontalPanel"];
         // Points de la poignée : 2 colonnes × 3 lignes à l'horizontale, l'inverse à la verticale.
         GripDots.LayoutTransform = vertical ? new RotateTransform(90) : Transform.Identity;
+        // À la verticale, bords plus fins : la barre fait à peine plus que la largeur d'une icône.
+        Panel.Padding = vertical ? new Thickness(2) : new Thickness(4);
+        Grip.Padding = vertical ? new Thickness(6, 3, 6, 3) : new Thickness(4, 6, 4, 6);
     }
 
     private void PlaceInitially()
@@ -120,6 +123,37 @@ public partial class CharacterBarWindow : Window
         var hwnd = new WindowInteropHelper(this).Handle;
         var style = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW));
+        HwndSource.FromHwnd(hwnd)?.AddHook(RemoveMinimumSize);
+        // La taille a déjà été calculée avec le minimum de Windows : on la fait recalculer.
+        SizeToContent = SizeToContent.Manual;
+        SizeToContent = SizeToContent.WidthAndHeight;
+    }
+
+    /// <summary>
+    /// Windows impose une largeur minimale (environ 130 px) aux fenêtres : sans cela, la barre verticale
+    /// serait deux fois plus large que ses icônes.
+    /// </summary>
+    private static IntPtr RemoveMinimumSize(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_GETMINMAXINFO = 0x0024;
+        if (msg == WM_GETMINMAXINFO)
+        {
+            var info = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+            info.ptMinTrackSize.X = 1;
+            info.ptMinTrackSize.Y = 1;
+            Marshal.StructureToPtr(info, lParam, false);
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X, Y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MINMAXINFO
+    {
+        public POINT ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
     }
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]

@@ -33,7 +33,7 @@ public sealed class HotkeySettings
 public sealed class CharacterBarSettings
 {
     public bool Visible { get; set; } = true;
-    public bool Vertical { get; set; }
+    public bool Vertical { get; set; } = true;
     /// <summary>Position de la barre à l'écran (null : coin en haut au centre de l'écran principal).</summary>
     public double? Left { get; set; }
     public double? Top { get; set; }
