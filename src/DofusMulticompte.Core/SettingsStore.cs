@@ -19,7 +19,7 @@ public sealed class SettingsStore
     public SettingsStore(string filePath) => FilePath = filePath;
 
     public static string DefaultPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DofusMulticompte", "settings.json");
+        DofusMulticompte.Core.AppPaths.Sub("settings.json");
 
     public AppSettings Load()
     {

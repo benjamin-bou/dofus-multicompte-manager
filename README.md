@@ -54,9 +54,15 @@ Un menu latéral sépare six pages : **Personnages** (la liste, avec les lanceme
 
 Ankama tolère les outils qui aident à **passer d'une fenêtre à l'autre**. Le **passage de tour automatique** fait jouer une action sans intervention humaine, ce que les conditions d'utilisation de Dofus interdisent. L'utiliser expose les comptes à une sanction. Ces options sont désactivées par défaut.
 
+## Installation
+
+Rien à installer ni à configurer : un seul fichier `Multicompte Dofus.exe` (environ 70 Mo, .NET inclus), à lancer tel quel sur Windows 10 (version 2004 ou plus récente) ou Windows 11. Les fenêtres Dofus sont détectées dès leur ouverture, quelle que soit la langue du client (français, anglais, espagnol, allemand, portugais). L'exécutable n'est pas signé : au premier lancement, Windows peut afficher « Windows a protégé votre ordinateur » ; cliquer sur « Informations complémentaires » puis « Exécuter quand même ».
+
+Seul réglage côté jeu, pour les fonctions liées aux tours : la notification de début de tour (voir plus bas).
+
 ## Compiler et lancer
 
-Prérequis : SDK .NET 10.
+Prérequis pour compiler : SDK .NET 10.
 
 ```bash
 dotnet build DofusMulticompte.slnx
@@ -70,13 +76,13 @@ dotnet test DofusMulticompte.slnx
 dotnet run --project src/DofusMulticompte.App
 ```
 
-Pour un exécutable autonome :
+Pour l'exécutable autonome à distribuer (un seul fichier, .NET inclus) :
 
 ```bash
-dotnet publish src/DofusMulticompte.App -c Release -r win-x64 --self-contained false -o publish
+dotnet publish src/DofusMulticompte.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
 ```
 
-Les réglages sont enregistrés dans `%APPDATA%\DofusMulticompte\settings.json`, et les dernières images des personnages dans `%APPDATA%\DofusMulticompte\portraits`. Rien n'est envoyé ailleurs.
+Les réglages sont enregistrés dans `%APPDATA%\DofusMulticompte\settings.json`, et les dernières images des personnages dans `%APPDATA%\DofusMulticompte\portraits`. Pour utiliser un autre dossier (version portable, tests), définir la variable d'environnement `DOFUSMULTICOMPTE_DATA`. Seules les têtes de classe et les données de chasse sont téléchargées depuis DofusDB ; rien n'est envoyé ailleurs.
 
 ## Organisation du code
 

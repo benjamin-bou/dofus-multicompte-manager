@@ -24,7 +24,7 @@ public sealed class ClassImageStore(string directory)
     public event Action? ImageLoaded;
 
     public static string DefaultDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DofusMulticompte", "classes");
+        DofusMulticompte.Core.AppPaths.Sub("classes");
 
     /// <summary>Renvoie l'image si elle est prête ; sinon lance son chargement et renvoie null. À appeler sur le thread de l'interface.</summary>
     public BitmapSource? Get(DofusClass? cls)

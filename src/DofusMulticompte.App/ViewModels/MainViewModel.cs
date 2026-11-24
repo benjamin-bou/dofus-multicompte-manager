@@ -32,7 +32,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly Dictionary<string, BitmapSource?> _avatarCache = new(StringComparer.OrdinalIgnoreCase);
 
     public static string AvatarDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DofusMulticompte", "avatars");
+        DofusMulticompte.Core.AppPaths.Sub("avatars");
 
     /// <summary>Têtes de base des classes (téléchargées une fois depuis DofusDB).</summary>
     public ClassImageStore ClassImages { get; } = new(ClassImageStore.DefaultDirectory);

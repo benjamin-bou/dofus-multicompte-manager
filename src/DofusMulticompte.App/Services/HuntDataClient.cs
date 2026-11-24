@@ -25,7 +25,7 @@ public sealed class HuntDataClient
 
     public HuntDataClient(string? directory = null)
     {
-        directory ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DofusMulticompte", "hunts");
+        directory ??= DofusMulticompte.Core.AppPaths.Sub("hunts");
         Directory.CreateDirectory(directory);
         _cachePath = Path.Combine(directory, "dofusdb-cache.json");
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("DofusMulticompte/1.0");

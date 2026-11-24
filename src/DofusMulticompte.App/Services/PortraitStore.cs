@@ -12,7 +12,7 @@ namespace DofusMulticompte.App.Services;
 public sealed class PortraitStore(string directory)
 {
     public static string DefaultDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DofusMulticompte", "portraits");
+        DofusMulticompte.Core.AppPaths.Sub("portraits");
 
     // Le pseudo est haché pour obtenir un nom de fichier valide quel que soit le caractère utilisé.
     private string PathFor(string characterName) =>

@@ -2,6 +2,26 @@ using DofusMulticompte.Core;
 
 namespace DofusMulticompte.Core.Tests;
 
+public class ForeignClientTitleTests
+{
+    // Le titre reprend la langue du client : chaque classe doit être reconnue quelle que soit la langue.
+    [Theory]
+    [InlineData("Tikoko - Rogue - 3.7.14.18 - Release", 13)]
+    [InlineData("Tikoko - Tymador - 3.7.14.18 - Release", 13)]
+    [InlineData("Tikoko - Halsabschneider - 3.7.14.18 - Release", 13)]
+    [InlineData("Tikoko - Ladino - 3.7.14.18 - Release", 13)]
+    [InlineData("Tikoko - Foggernaut - 3.7.14.18 - Release", 15)]
+    [InlineData("Tikoko - Yopuka - 3.7.14.18 - Release", 8)]
+    [InlineData("Tikoko - Zurcarák - 3.7.14.18 - Release", 6)]
+    [InlineData("Tikoko - Sacrógrito - 3.7.14.18 - Release", 11)]
+    [InlineData("Tikoko - Übermagier - 3.7.14.18 - Release", 17)]
+    [InlineData("Tikoko - Kilorf - 3.7.14.18 - Release", 18)]
+    [InlineData("Tikoko - Speerschmied - 3.7.14.18 - Release", 20)]
+    [InlineData("Tikoko - Forjalança - 3.7.14.18 - Beta", 20)]
+    public void Recognizes_class_names_of_every_client_language(string title, int breedId) =>
+        Assert.Equal(breedId, WindowTitleParser.Parse(title)!.KnownClass!.BreedId);
+}
+
 public class WindowTitleParserTests
 {
     [Fact]
