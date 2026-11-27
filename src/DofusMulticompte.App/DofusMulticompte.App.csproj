@@ -9,10 +9,17 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- Version comparée à la dernière release GitHub par la mise à jour intégrée ; l'automatisation de
+         publication la remplace par celle du tag (v1.2.0 → 1.2.0). -->
+    <Version>1.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\logo.png" />
+  </ItemGroup>
+  <!-- Source des mises à jour, fournie par l'automatisation de publication (-p:UpdateRepository=propriétaire/dépôt). -->
+  <ItemGroup Condition="'$(UpdateRepository)' != ''">
+    <AssemblyMetadata Include="UpdateRepository" Value="$(UpdateRepository)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DofusMulticompte.Core\DofusMulticompte.Core.csproj" />

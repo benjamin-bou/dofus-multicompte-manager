@@ -138,10 +138,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _ = RefreshThumbnailsAsync();
         Log("Application démarrée. Les instances Dofus sont détectées automatiquement.");
         Paths = new PathFollowViewModel(this);
+        Updates = new UpdateViewModel(this);
     }
 
     /// <summary>Page « Chemins » : chemins de récolte et superposition sur la minimap.</summary>
     public PathFollowViewModel Paths { get; }
+
+    /// <summary>Mise à jour intégrée depuis les releases GitHub.</summary>
+    public UpdateViewModel Updates { get; }
+
+    /// <summary>Notification en bas à droite de l'écran, indépendante du réglage des notifications de connexion.</summary>
+    public void ShowNotification(string key, NotificationContent content) => _notifications.Show(key, content, TimeSpan.FromSeconds(10));
 
     public AppSettings Settings { get; }
     public ObservableCollection<CharacterViewModel> Characters { get; } = [];

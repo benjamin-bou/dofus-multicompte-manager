@@ -67,6 +67,12 @@ Rien à installer ni à configurer : un seul fichier `Multicompte Dofus.exe` (en
 
 Seul réglage côté jeu, pour les fonctions liées aux tours : la notification de début de tour (voir plus bas).
 
+### Mises à jour
+
+À partir de la version 1.1.0, l'application vérifie elle-même, au démarrage puis toutes les 6 heures, si une nouvelle version est publiée dans les releases GitHub du dépôt. Si c'est le cas, une notification la signale et un encart « Mettre à jour » apparaît dans le menu latéral : un clic télécharge le nouvel exécutable à côté de l'actuel, vérifie sa taille et son empreinte SHA-256 publiées par GitHub, remplace l'exécutable puis redémarre l'application. Les réglages (dans `%APPDATA%`) sont conservés. La vérification se désactive dans *Affichage › Application*, où l'on voit aussi la version installée.
+
+L'exécutable doit se trouver dans un dossier où l'on peut écrire (Documents, Bureau, Téléchargements…), pas dans *Program Files*. La version 1.0.0 n'avait pas ce mécanisme : il faut télécharger une fois la 1.1.0 à la main.
+
 ## Compiler et lancer
 
 Prérequis pour compiler : SDK .NET 10.
@@ -87,6 +93,18 @@ Pour l'exécutable autonome à distribuer (un seul fichier, .NET inclus) :
 
 ```bash
 dotnet publish src/DofusMulticompte.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
+```
+
+### Publier une nouvelle version
+
+Pousser un tag `vX.Y.Z` suffit : l'automatisation GitHub Actions (`.github/workflows/release.yml`) lance les tests, compile l'exécutable autonome avec ce numéro de version, et crée la release avec `MulticompteDofus.exe` en pièce jointe. Les applications installées la détectent ensuite d'elles-mêmes.
+
+```bash
+git tag v1.2.0
+```
+
+```bash
+git push origin v1.2.0
 ```
 
 Les réglages sont enregistrés dans `%APPDATA%\DofusMulticompte\settings.json`, et les dernières images des personnages dans `%APPDATA%\DofusMulticompte\portraits`. Pour utiliser un autre dossier (version portable, tests), définir la variable d'environnement `DOFUSMULTICOMPTE_DATA`. Seules les têtes de classe et les données de chasse sont téléchargées depuis DofusDB ; rien n'est envoyé ailleurs.

@@ -1,0 +1,52 @@
+# Publication d'une version : pousser un tag « vX.Y.Z » suffit.
+#   git tag v1.2.0
+#   git push origin v1.2.0
+# Les tests sont lancés, l'exécutable autonome (un seul fichier, .NET inclus) est compilé avec la version du tag
+# et l'adresse de ce dépôt (source de ses futures mises à jour, jamais écrite dans le code),
+# puis la release GitHub est créée avec MulticompteDofus.exe en pièce jointe. Les applications déjà installées
+# la détectent d'elles-mêmes (mise à jour intégrée) et vérifient l'empreinte SHA-256 publiée par GitHub.
+name: Publication
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write # créer la release et y joindre l'exécutable
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Version tirée du tag
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag invalide : $env:GITHUB_REF_NAME (attendu : vX.Y.Z)" }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Tests
+        run: dotnet test DofusMulticompte.slnx -c Release
+
+      - name: Exécutable autonome
+        shell: pwsh
+        run: |
+          dotnet publish src/DofusMulticompte.App -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=none -p:Version=$env:VERSION -p:UpdateRepository=$env:GITHUB_REPOSITORY -o publish
+          Move-Item publish/DofusMulticompte.exe publish/MulticompteDofus.exe
+          (Get-Item publish/MulticompteDofus.exe).VersionInfo | Format-List FileVersion, ProductVersion
+
+      - name: Release GitHub
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME publish/MulticompteDofus.exe `
+            --title "Multicompte Dofus $env:VERSION" --generate-notes

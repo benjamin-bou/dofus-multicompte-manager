@@ -115,6 +115,9 @@ public sealed class AppSettings
     /// <summary>Chemin de récolte suivi au démarrage (nom), ou null.</summary>
     public string? ActivePathName { get; set; }
 
+    /// <summary>Vérifie au démarrage, puis toutes les 6 heures, si une nouvelle version est publiée sur GitHub.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     /// <summary>Touche du jeu qui met en évidence les éléments interactifs, appuyée régulièrement pendant la récolte.</summary>
     public string HighlightKey { get; set; } = "Y";
 

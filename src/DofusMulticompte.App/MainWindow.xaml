@@ -370,12 +370,27 @@
                             <!-- État général -->
                             <Border DockPanel.Dock="Bottom" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10">
+                                <Border.Margin>
+                                    <Thickness>0,10,0,0</Thickness>
+                                </Border.Margin>
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal">
                                         <Ellipse Width="7" Height="7" Fill="{StaticResource Turn}" VerticalAlignment="Center"/>
                                         <TextBlock Text="Détection active" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Hint}" FontSize="11" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Mise à jour disponible (visible seulement dans ce cas) -->
+                            <Border DockPanel.Dock="Bottom" Background="{StaticResource AccentSoft}" BorderBrush="{StaticResource Accent}" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,10"
+                                    Visibility="{Binding Updates.IsAvailable, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Updates.AvailableText}" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Updates.Status}" Style="{StaticResource Hint}" FontSize="11" Margin="0,4,0,8" TextWrapping="Wrap"/>
+                                    <Button Content="Mettre à jour" Style="{StaticResource PrimaryButton}" Padding="10,6"
+                                            Command="{Binding Updates.InstallCommand}"/>
                                 </StackPanel>
                             </Border>
 
@@ -716,6 +731,23 @@
                             <controls:SettingRow Title="Barre verticale" Description="Plus étroite : les noms s'affichent au survol."
                                                  IsEnabled="{Binding ShowCharacterBar}">
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CharacterBarVertical}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Application" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="{Binding Updates.CurrentVersionText}"
+                                                 Description="{Binding Updates.Status, TargetNullValue=''}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Voir les versions" Padding="10,5" Margin="0,0,6,0" Command="{Binding Updates.OpenReleaseCommand}"/>
+                                    <Button Content="Vérifier maintenant" Padding="10,5" Command="{Binding Updates.CheckCommand}"/>
+                                </StackPanel>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Vérifier les mises à jour"
+                                                 Description="Au démarrage puis toutes les 6 heures, auprès des versions publiées sur GitHub. La mise à jour ne s'installe que si tu cliques sur « Mettre à jour » ; tes réglages sont conservés.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Updates.CheckForUpdates}"/>
                             </controls:SettingRow>
                         </StackPanel>
                     </Border>
