@@ -105,6 +105,19 @@ public sealed class AppSettings
     /// <summary>Notifications en bas à droite de l'écran : connexions (« x/N ») et relances.</summary>
     public bool ShowConnectionNotifications { get; set; } = true;
 
+    /// <summary>
+    /// Taille d'une carte sur la minimap, rapportée à la hauteur de la fenêtre du jeu (pour suivre les
+    /// redimensionnements). Mesurée automatiquement au premier changement de carte ; 0 = pas encore mesurée.
+    /// </summary>
+    public double MinimapCellWidthRatio { get; set; }
+    public double MinimapCellHeightRatio { get; set; }
+
+    /// <summary>Chemin de récolte suivi au démarrage (nom), ou null.</summary>
+    public string? ActivePathName { get; set; }
+
+    /// <summary>Touche du jeu qui met en évidence les éléments interactifs, appuyée régulièrement pendant la récolte.</summary>
+    public string HighlightKey { get; set; } = "Y";
+
     public Dictionary<string, CharacterProfile> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public CharacterProfile GetOrCreateProfile(string characterName)

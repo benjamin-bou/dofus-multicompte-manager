@@ -137,7 +137,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Rescan();
         _ = RefreshThumbnailsAsync();
         Log("Application démarrée. Les instances Dofus sont détectées automatiquement.");
+        Paths = new PathFollowViewModel(this);
     }
+
+    /// <summary>Page « Chemins » : chemins de récolte et superposition sur la minimap.</summary>
+    public PathFollowViewModel Paths { get; }
 
     public AppSettings Settings { get; }
     public ObservableCollection<CharacterViewModel> Characters { get; } = [];
@@ -865,7 +869,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             : $"Raccourci indisponible (déjà utilisé ou invalide) : {string.Join(", ", failures)}";
     }
 
-    private void Log(string message)
+    public void Log(string message)
     {
         var line = $"{DateTime.Now:HH:mm:ss}  {message}";
         if (_dispatcher.CheckAccess()) Append();
@@ -880,6 +884,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        Paths.Dispose();
         _scanTimer.Stop();
         _thumbnailTimer.Stop();
         _rescanSoon.Stop();

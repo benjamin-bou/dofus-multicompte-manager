@@ -731,6 +731,99 @@
             </ScrollViewer>
         </TabItem>
 
+        <!-- ============================== CHEMINS ============================== -->
+        <TabItem Header="Chemins" Tag="&#xE707;" Style="{StaticResource NavItem}">
+            <ScrollViewer Style="{StaticResource SettingsPage}">
+                <StackPanel MaxWidth="780" HorizontalAlignment="Left">
+                    <TextBlock Text="Chemins de récolte" Style="{StaticResource PageTitle}"/>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="Importe une capture de chemin (carte du monde quadrillée avec un tracé rouge) : le chemin à suivre s'affiche par-dessus la mini-carte du jeu, et avance tout seul à chaque changement de carte. Rien n'est envoyé au jeu."/>
+
+                    <TextBlock Text="Suivi en cours" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="{Binding Paths.ActiveName, TargetNullValue='Aucun chemin'}"
+                                                 Description="{Binding Paths.ProgressText}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Étape précédente" Padding="10,5" Margin="0,0,6,0" Command="{Binding Paths.PreviousStepCommand}"/>
+                                    <Button Content="Suivante" Padding="10,5" Margin="0,0,6,0" Command="{Binding Paths.NextStepCommand}"/>
+                                    <Button Content="Arrêter" Padding="10,5" Command="{Binding Paths.StopCommand}"/>
+                                </StackPanel>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Position lue" Description="Coordonnées affichées en haut à gauche du jeu, lues une fois par seconde.">
+                                <TextBlock Text="{Binding Paths.PositionText}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Mini-carte" Description="{Binding Paths.MinimapText}">
+                                <Button Content="Recommencer le chemin" Padding="10,5" Command="{Binding Paths.RestartCommand}"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Échelle de la mini-carte" Description="{Binding Paths.ScaleText}">
+                                <Button Content="Remesurer" Padding="10,5" Command="{Binding Paths.RecalibrateCommand}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Récolte" Style="{StaticResource GroupTitle}"/>
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <controls:SettingRow BorderThickness="0" Title="Mettre en évidence les éléments interactifs"
+                                                 Description="Appuie sur la touche du jeu 2 à 3 fois par seconde (maintenue environ un quart de seconde), seulement quand une fenêtre Dofus est au premier plan. En pause 2 s après chaque touche que tu tapes, pour ne rien écrire dans le chat.">
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Paths.HighlightEnabled}"
+                                          AutomationProperties.Name="Mettre en évidence les éléments interactifs"/>
+                            </controls:SettingRow>
+                            <controls:SettingRow Title="Touche de mise en évidence" Description="Celle réglée dans Dofus (Options › Raccourcis). Une touche seule.">
+                                <controls:HotkeyBox Width="120" Text="{Binding Paths.HighlightKey, UpdateSourceTrigger=PropertyChanged}"/>
+                            </controls:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <DockPanel Margin="0,28,0,10">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Coller une capture" Padding="12,6" Margin="0,0,8,0" Command="{Binding Paths.ImportClipboardCommand}"/>
+                            <Button Content="Importer une capture…" Padding="12,6" Style="{StaticResource PrimaryButton}" Command="{Binding Paths.ImportFileCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="Chemins enregistrés" Style="{StaticResource GroupTitle}" Margin="0" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <TextBlock Margin="4,8" TextWrapping="Wrap"
+                                       Text="Aucun chemin. Importe une capture : l'application reconnaît le quadrillage et le tracé, tu indiques juste les coordonnées du départ.">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Paths.HasPaths}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding Paths.Paths}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <controls:SettingRow Title="{Binding Name}">
+                                            <controls:SettingRow.Description>
+                                                <MultiBinding StringFormat="{}{0} étapes · départ {1}">
+                                                    <Binding Path="Steps.Count"/>
+                                                    <Binding Path="Steps[0]"/>
+                                                </MultiBinding>
+                                            </controls:SettingRow.Description>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="Suivre" Padding="12,5" Margin="0,0,6,0" Style="{StaticResource PrimaryButton}"
+                                                        Command="{Binding DataContext.Paths.FollowCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                                <Button Content="Supprimer" Padding="10,5"
+                                                        Command="{Binding DataContext.Paths.DeleteCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                        </controls:SettingRow>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
         <!-- ============================== JOURNAL ============================== -->
         <TabItem x:Name="JournalTab" Header="Journal" Tag="&#xE81C;" Style="{StaticResource NavItem}">
             <Grid Margin="40,30,40,32">

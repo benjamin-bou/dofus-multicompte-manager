@@ -78,7 +78,44 @@ public static class ScreenOcr
     public static async Task<MapPosition?> ReadMapPositionAsync(BitmapSource image)
     {
         var region = new Int32Rect(0, (int)(image.PixelHeight * 0.025), (int)(image.PixelWidth * 0.2), (int)(image.PixelHeight * 0.085));
-        var lines = await ReadAsync(image, region);
+        // La ligne des coordonnées est écrite en blanc avec un contour sombre et une ombre, sur le décor : l'OCR
+        // la rate souvent sur l'image brute (feuillage jaune, pavés clairs). On ne garde que le blanc, en noir sur
+        // fond blanc, lu à deux agrandissements, puis l'image brute ; deux lectures concordantes suffisent.
+        // Seuil du blanc mesuré sur de vraies captures : à 225 les chiffres fins perdent leurs bords (« 3, » disparaît),
+        // à 200 la ligne est lue entière.
+        var white = WhiteTextOnly(image, region);
+        var whole = new Int32Rect(0, 0, region.Width, region.Height);
+        var candidates = new List<MapPosition>();
+        foreach (var read in new Func<Task<IReadOnlyList<OcrLineResult>>>[]
+                 {
+                     () => ReadAsync(white, whole, scale: 2),
+                     () => ReadAsync(white, whole, scale: 3),
+                     () => ReadAsync(image, region, scale: 1.5),
+                 })
+        {
+            if (FindPosition(await read()) is { } p)
+            {
+                if (candidates.Contains(p)) return p; // deux lectures concordantes
+                candidates.Add(p);
+            }
+        }
+        return PickCandidate(candidates);
+    }
+
+    /// <summary>
+    /// Sans accord, on préfère la lecture qui a gardé un signe moins quand les autres ne diffèrent que par le signe :
+    /// un « - » perdu est fréquent (trait fin), un « - » inventé est rare.
+    /// </summary>
+    public static MapPosition? PickCandidate(IReadOnlyList<MapPosition> candidates)
+    {
+        if (candidates.Count == 0) return null;
+        var first = candidates[0];
+        var sameUpToSign = candidates.All(c => Math.Abs(c.X) == Math.Abs(first.X) && Math.Abs(c.Y) == Math.Abs(first.Y));
+        return sameUpToSign ? candidates.OrderBy(c => c.X + c.Y).First() : first;
+    }
+
+    private static MapPosition? FindPosition(IReadOnlyList<OcrLineResult> lines)
+    {
         // La ligne qui ne contient que des coordonnées est la bonne ; sinon, premières coordonnées trouvées.
         foreach (var line in lines)
             if (PositionParser.Parse(line.Text) is { } p && line.Text.Count(char.IsLetter) == 0)
@@ -87,6 +124,26 @@ public static class ScreenOcr
             if (PositionParser.Parse(line.Text) is { } p)
                 return p;
         return null;
+    }
+
+    /// <summary>Zone recadrée où seuls les pixels blancs purs (texte de l'interface) deviennent noirs, le reste blanc.</summary>
+    private static BitmapSource WhiteTextOnly(BitmapSource image, Int32Rect region)
+    {
+        region = Clip(region, image.PixelWidth, image.PixelHeight);
+        var src = new FormatConvertedBitmap(new CroppedBitmap(image, region), PixelFormats.Bgra32, null, 0);
+        var stride = region.Width * 4;
+        var px = new byte[stride * region.Height];
+        src.CopyPixels(px, stride, 0);
+        for (var i = 0; i < px.Length; i += 4)
+        {
+            var white = px[i] > 200 && px[i + 1] > 200 && px[i + 2] > 200;
+            var v = white ? (byte)0 : (byte)255;
+            px[i] = px[i + 1] = px[i + 2] = v;
+            px[i + 3] = 255;
+        }
+        var result = BitmapSource.Create(region.Width, region.Height, 96, 96, PixelFormats.Bgra32, null, px, stride);
+        result.Freeze();
+        return result;
     }
 
     private static Int32Rect Clip(Int32Rect r, int w, int h)
